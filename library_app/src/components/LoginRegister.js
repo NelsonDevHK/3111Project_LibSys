@@ -97,9 +97,9 @@ function LoginRegister() {
   };
 
   return (
-    <div className="container" style={{ maxWidth: 350, margin: '60px auto', background: '#fff', padding: '24px 32px', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
+    <div className="container">
       <h2>{isRegister ? 'Register' : 'Login'}</h2>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <form onSubmit={handleSubmit}>
         {isRegister && (
           <>
             <label htmlFor="fullName">Full Name</label>
@@ -132,7 +132,7 @@ function LoginRegister() {
         <button type="submit">{isRegister ? 'Register' : 'Login'}</button>
         {message && <div className={messageType}>{message}</div>}
       </form>
-      <button className="toggle" onClick={toggleForm} style={{ background: 'none', color: '#007bff', border: 'none', cursor: 'pointer', textDecoration: 'underline', marginTop: 8 }}>
+      <button className="toggle" onClick={toggleForm}>
         {isRegister ? 'Already have an account? Login' : "Don't have an account? Register"}
       </button>
     </div>
