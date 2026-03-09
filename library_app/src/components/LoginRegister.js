@@ -1,16 +1,5 @@
 import React, { useState } from 'react';
 
-
-// Use localStorage for persistent user storage
-function getStoredUsers() {
-  const data = localStorage.getItem('users');
-  return data ? JSON.parse(data) : [];
-}
-
-function saveUsers(users) {
-  localStorage.setItem('users', JSON.stringify(users));
-}
-
 function validatePassword(password) {
   const minLength = 8;
   const hasLetter = /[a-zA-Z]/.test(password);
@@ -18,16 +7,9 @@ function validatePassword(password) {
   return password.length >= minLength && hasLetter && hasNumber;
 }
 
-function isUsernameUnique(username) {
-  const users = getStoredUsers();
-  return !users.some(user => user.username === username);
-}
-
-
 function LoginRegister() {
-
   const [isRegister, setIsRegister] = useState(false);
-  const [form, setForm] = useState({ username: '', password: '', fullName: '', role: 'student' });
+  const [form, setForm] = useState({ username: '', password: '', fullName: '', role: 'student', bio: '', employeeId: '' });
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
 
@@ -39,16 +21,16 @@ function LoginRegister() {
     setIsRegister(!isRegister);
     setMessage('');
     setMessageType('');
-    setForm({ username: '', password: '', fullName: '', role: 'student' });
+    setForm({ username: '', password: '', fullName: '', role: 'student', bio: '', employeeId: '' });
   };
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault();
     setMessage('');
     setMessageType('');
     if (isRegister) {
-      if (!isUsernameUnique(form.username)) {
-        setMessage('Username already exists.');
+      if (!form.username) {
+        setMessage('Username cannot be empty.');
         setMessageType('error');
         return;
       }
@@ -62,21 +44,53 @@ function LoginRegister() {
         setMessageType('error');
         return;
       }
-      const users = getStoredUsers();
-      users.push({ ...form });
-      saveUsers(users);
-      setMessage('Registration successful! You can now log in.');
-      setMessageType('success');
-      setForm({ username: '', password: '', fullName: '', role: 'student' });
-      setIsRegister(false);
+      // Prepare payload
+      const payload = {
+        username: form.username,
+        fullName: form.fullName,
+        password: form.password,
+        role: form.role
+      };
+      if (form.role === 'author') payload.bio = form.bio;
+      if (form.role === 'librarian') payload.employeeId = form.employeeId;
+      try {
+        const res = await fetch('http://localhost:4000/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setMessage('Registration successful! You can now log in.');
+          setMessageType('success');
+          setForm({ username: '', password: '', fullName: '', role: 'student', bio: '', employeeId: '' });
+          setIsRegister(false);
+        } else {
+          setMessage(data.error || 'Registration failed.');
+          setMessageType('error');
+        }
+      } catch (err) {
+        setMessage('Server error.');
+        setMessageType('error');
+      }
     } else {
-      const users = getStoredUsers();
-      const user = users.find(u => u.username === form.username && u.password === form.password);
-      if (user) {
-        setMessage(`Login successful! Welcome, ${user.fullName} (${user.role})`);
-        setMessageType('success');
-      } else {
-        setMessage('Invalid username or password.');
+      // Login
+      try {
+        const res = await fetch('http://localhost:4000/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: form.username, password: form.password, role: form.role })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setMessage(`Login successful! Welcome, ${data.user.fullName} (${data.user.role})`);
+          setMessageType('success');
+        } else {
+          setMessage(data.error || 'Login failed.');
+          setMessageType('error');
+        }
+      } catch (err) {
+        setMessage('Server error.');
         setMessageType('error');
       }
     }
@@ -94,7 +108,21 @@ function LoginRegister() {
             <select id="role" name="role" value={form.role} onChange={handleChange}>
               <option value="student">Student</option>
               <option value="staff">Staff</option>
+              <option value="author">Author</option>
+              <option value="librarian">Librarian</option>
             </select>
+            {form.role === 'author' && (
+              <>
+                <label htmlFor="bio">Bio (optional)</label>
+                <input type="text" id="bio" name="bio" value={form.bio} onChange={handleChange} />
+              </>
+            )}
+            {form.role === 'librarian' && (
+              <>
+                <label htmlFor="employeeId">Employee ID (optional)</label>
+                <input type="text" id="employeeId" name="employeeId" value={form.employeeId} onChange={handleChange} />
+              </>
+            )}
           </>
         )}
         <label htmlFor="username">Username</label>
