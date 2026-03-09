@@ -55,6 +55,8 @@ function LoginRegister() {
         return;
       }
       // Prepare payload
+      // payload: registration data sent to backend
+      // Contains username, fullName, password, role, and optionally bio/employeeId
       const payload = {
         username: form.username,
         fullName: form.fullName,

@@ -1,3 +1,38 @@
+/* Responsive table for AvailableBooks */
+@media (max-width: 700px) {
+  .books-list table,
+  .books-list thead,
+  .books-list tbody,
+  .books-list th,
+  .books-list td,
+  .books-list tr {
+    display: block;
+    width: 100%;
+  }
+  .books-list thead {
+    display: none;
+  }
+  .books-list tr {
+    margin-bottom: 18px;
+    background: #23232e;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    padding: 8px 0;
+  }
+  .books-list td {
+    padding: 12px 10px;
+    border: none;
+    position: relative;
+    text-align: left;
+  }
+  .books-list td:before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #ffb86c;
+    display: block;
+    margin-bottom: 4px;
+  }
+}
 /* --- StudentPortal & AvailableBooks Styling --- */
 .portal {
   max-width: 900px;
@@ -38,7 +73,7 @@ table {
 }
 
 th, td {
-  padding: 12px 10px;
+  padding: 18px 16px;
   border-bottom: 1px solid #44475a;
   text-align: left;
 }
@@ -53,7 +88,6 @@ tr:last-child td {
   border-bottom: none;
 }
 
-/* Fixed button styling */
 button {
   background: #4fd6b0;
   color: #23232e;
@@ -117,6 +151,7 @@ label {
 }
 
 input, select {
+  margin: 5px;
   padding: 8px;
   border: 1px solid #44475a;
   border-radius: 4px;
