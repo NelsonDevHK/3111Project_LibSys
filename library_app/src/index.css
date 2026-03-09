@@ -1,3 +1,79 @@
+/* --- StudentPortal & AvailableBooks Styling --- */
+.portal {
+  max-width: 900px;
+  margin: 40px auto;
+  background: #292a2d;
+  padding: 32px 40px;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+
+.portal h2 {
+  color: #ffb86c;
+  margin-bottom: 24px;
+  font-size: 2rem;
+}
+
+.portal p {
+  color: #e6e6e6;
+  margin-bottom: 24px;
+}
+
+.books-list {
+  margin-top: 24px;
+}
+
+.books-list h2 {
+  color: #4fd6b0;
+  margin-bottom: 16px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #23232e;
+  color: #e6e6e6;
+  margin-bottom: 24px;
+}
+
+th, td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #44475a;
+  text-align: left;
+}
+
+th {
+  background: #292a2d;
+  color: #ffb86c;
+  font-weight: 600;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+/* Fixed button styling */
+button {
+  background: #4fd6b0;
+  color: #23232e;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+button:hover {
+  background: #ffb86c;
+  color: #292a2d;
+}
+.books-list .success {
+  color: #4fd6b0;
+  font-weight: 500;
+  margin-top: 12px;
+}
 
 body {
   margin: 0;
