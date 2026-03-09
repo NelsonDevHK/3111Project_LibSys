@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import StudentPortal from './StudentPortal';
+import StaffPortal from './StaffPortal';
+import AuthorPortal from './AuthorPortal';
+import LibrarianPortal from './LibrarianPortal';
 
 function validatePassword(password) {
   const minLength = 8;
@@ -12,6 +16,7 @@ function LoginRegister() {
   const [form, setForm] = useState({ username: '', password: '', fullName: '', role: 'student', bio: '', employeeId: '' });
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
+  const [portalRole, setPortalRole] = useState(null); // null or 'student'|'staff'|'author'|'librarian'
 
   const handleChange = e => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -23,6 +28,11 @@ function LoginRegister() {
     setMessageType('');
     setForm({ username: '', password: '', fullName: '', role: 'student', bio: '', employeeId: '' });
   };
+
+  // Always reset role to 'student' when switching forms or after login
+  React.useEffect(() => {
+    setForm(form => ({ ...form, role: 'student' }));
+  }, [isRegister]);
 
   const handleSubmit = async e => {
     e.preventDefault();
@@ -85,6 +95,7 @@ function LoginRegister() {
         if (res.ok) {
           setMessage(`Login successful! Welcome, ${data.user.fullName} (${data.user.role})`);
           setMessageType('success');
+          setPortalRole(data.user.role); // Set portal role for routing
         } else {
           setMessage(data.error || 'Login failed.');
           setMessageType('error');
@@ -96,6 +107,11 @@ function LoginRegister() {
     }
   };
 
+  if (portalRole === 'student') return <StudentPortal />;
+  if (portalRole === 'staff') return <StaffPortal />;
+  if (portalRole === 'author') return <AuthorPortal />;
+  if (portalRole === 'librarian') return <LibrarianPortal />;
+
   return (
     <div className="container">
       <h2>{isRegister ? 'Register' : 'Login'}</h2>
@@ -104,6 +120,7 @@ function LoginRegister() {
           <>
             <label htmlFor="fullName">Full Name</label>
             <input type="text" id="fullName" name="fullName" value={form.fullName} onChange={handleChange} required />
+            {/* Role selection for registration */}
             <label htmlFor="role">Role</label>
             <select id="role" name="role" value={form.role} onChange={handleChange}>
               <option value="student">Student</option>
@@ -123,6 +140,18 @@ function LoginRegister() {
                 <input type="text" id="employeeId" name="employeeId" value={form.employeeId} onChange={handleChange} />
               </>
             )}
+          </>
+        )}
+        {/* Always show role selection for login */}
+        {!isRegister && (
+          <>
+            <label htmlFor="role">Role</label>
+            <select id="role" name="role" value={form.role} onChange={handleChange}>
+              <option value="student">Student</option>
+              <option value="staff">Staff</option>
+              <option value="author">Author</option>
+              <option value="librarian">Librarian</option>
+            </select>
           </>
         )}
         <label htmlFor="username">Username</label>
