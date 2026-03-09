@@ -5,7 +5,7 @@ function AvailableBooks({ onBorrow }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const fetchBooks = () => {
     fetch('http://localhost:4000/api/books')
       .then(res => res.json())
       .then(data => {
@@ -16,7 +16,16 @@ function AvailableBooks({ onBorrow }) {
         setError('Failed to load books.');
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchBooks();
   }, []);
+
+  const handleBorrow = async (bookId) => {
+    await onBorrow(bookId);
+    fetchBooks(); // Refresh books after borrowing
+  };
 
   if (loading) return <div>Loading books...</div>;
   if (error) return <div className="error">{error}</div>;
@@ -45,7 +54,7 @@ function AvailableBooks({ onBorrow }) {
               <td>{book.summary}</td>
               <td>
                 {book.status === 'available' ? (
-                  <button onClick={() => onBorrow(book.id)}>Borrow</button>
+                  <button onClick={() => handleBorrow(book.id)}>Borrow</button>
                 ) : (
                   <span>Borrowed</span>
                 )}
