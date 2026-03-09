@@ -1,0 +1,43 @@
+{
+  "books": [
+    {
+      "id": 1,
+      "title": "Dummy Book One",
+      "authorUsername": "author1",
+      "authorFullName": "Author One",
+      "genre": "Fiction",
+      "description": "A test book for Task 1.3/1.4.",
+      "publishDate": "2026-03-09",
+      "status": "available",
+      "summary": "This is a summary of Dummy Book One.",
+      "coverImage": "",
+      "approved": true
+    },
+    {
+      "id": 2,
+      "title": "Dummy Book Two",
+      "authorUsername": "author1",
+      "authorFullName": "Author One",
+      "genre": "Science",
+      "description": "Another test book for Task 1.3/1.4.",
+      "publishDate": "2026-03-09",
+      "status": "available",
+      "summary": "This is a summary of Dummy Book Two.",
+      "coverImage": "",
+      "approved": true
+    },
+    {
+      "id": 3,
+      "title": "Borrowed Book",
+      "authorUsername": "author1",
+      "authorFullName": "Author One",
+      "genre": "History",
+      "description": "A borrowed book for Task 1.4.",
+      "publishDate": "2026-03-09",
+      "status": "borrowed",
+      "summary": "This is a summary of Borrowed Book.",
+      "coverImage": "",
+      "approved": true
+    }
+  ]
+}
