@@ -137,8 +137,8 @@ app.post('/api/publish',
     (req, res) => {
   // console.log('Received publish request', req.body, req.files);
   try {
-    const { title, authorName, genre, description } = req.body;
-    if (!title || !authorName || !genre || !description || !req.files.file) {
+    const { title, authorUsername, genre, description } = req.body;
+    if (!title || !authorUsername || !genre || !description || !req.files.file) {
       return res.status(400).json({ error: 'All fields required' });
     }
 
@@ -153,7 +153,7 @@ app.post('/api/publish',
     const newBook = {
       id: Date.now(),
       title,
-      authorName,
+      authorUsername,
       genre,
       description,
       filePath: relativePdfPath,

@@ -5,7 +5,7 @@ const GENRES = ['Fiction', 'Non-Fiction', 'Science', 'History'];
 const PublishPage = ({ currentUser }) => {
   const [form, setForm] = useState({
     title: '',
-    authorName: currentUser?.username || '',
+    authorUsername: currentUser?.username || '',
     genre: [],
     description: '',
     file: null,
@@ -14,7 +14,7 @@ const PublishPage = ({ currentUser }) => {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    setForm(f => ({ ...f, authorName: currentUser?.username || '' }));
+    setForm(f => ({ ...f, authorUsername: currentUser?.username || '' }));
   }, [currentUser]);
 
   const handleChange = (e) => {
@@ -43,7 +43,7 @@ const PublishPage = ({ currentUser }) => {
     e.preventDefault();
     if (
       !form.title ||
-      !form.authorName ||
+      !form.authorUsername ||
       form.genre.length === 0 ||      // require at least one
       !form.file                         // PDF is required
     ) {
@@ -72,7 +72,7 @@ const PublishPage = ({ currentUser }) => {
 
     const formData = new FormData();
     formData.append('title', form.title);
-    formData.append('authorName', form.authorName);
+    formData.append('authorUsername', form.authorUsername);
     formData.append('genre', form.genre.join(','));
     formData.append('description', form.description);
     formData.append('file', form.file);
@@ -87,7 +87,7 @@ const PublishPage = ({ currentUser }) => {
         setMessage('Book submitted for approval!');
         setForm({
           title: '',
-          authorName: currentUser?.username || '',
+          authorUsername: currentUser?.username || '',
           genre: [],
           description: '',
           file: null,
@@ -119,13 +119,13 @@ const PublishPage = ({ currentUser }) => {
         </div>
 
         <div className="form-row">
-          <label htmlFor="authorName">Author Name</label>
+          <label htmlFor="authorUsername">Author Username</label>
           <input
-            id="authorName"
+            id="authorUsername"
             type="text"
-            name="authorName"
-            placeholder="Author Name"
-            value={form.authorName}
+            name="authorUsername"
+            placeholder="Author Username"
+            value={form.authorUsername}
             onChange={handleChange}
             className="input"
             readOnly
