@@ -137,8 +137,8 @@ app.post('/api/publish',
     (req, res) => {
   // console.log('Received publish request', req.body, req.files);
   try {
-    const { title, authorUsername, genre, description } = req.body;
-    if (!title || !authorUsername || !genre || !description || !req.files.file) {
+    const { title, authorUsername, authorFullName, genre, description } = req.body;
+    if (!title || !authorUsername || !authorFullName || !genre || !description || !req.files.file) {
       return res.status(400).json({ error: 'All fields required' });
     }
 
@@ -154,11 +154,13 @@ app.post('/api/publish',
       id: Date.now(),
       title,
       authorUsername,
+      authorFullName,
       genre,
       description,
       filePath: relativePdfPath,
       coverPath: relativeCoverPath,
-      status: 'pending',
+      publishDate: new Date().toISOString().split('T')[0],  // Date only (YYYY-MM-DD)
+      approved: false,
     };
     pendingBooks.push(newBook);
     writePendingBooks(pendingBooks);

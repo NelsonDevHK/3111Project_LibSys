@@ -73,6 +73,7 @@ const PublishPage = ({ currentUser }) => {
     const formData = new FormData();
     formData.append('title', form.title);
     formData.append('authorUsername', form.authorUsername);
+    formData.append('authorFullName', currentUser?.fullName || '');
     formData.append('genre', form.genre.join(','));
     formData.append('description', form.description);
     formData.append('file', form.file);
