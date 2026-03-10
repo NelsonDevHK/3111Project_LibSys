@@ -1,3 +1,4 @@
+const multer = require('multer');
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -78,6 +79,99 @@ app.post('/api/borrow', (req, res) => {
   writeBooks(books);
   res.json({ message: 'Book borrowed successfully!', book });
 });
+
+// Author helper to handle book publishing with file upload
+
+// Pending books helpers (updated to handle errors)
+function readPendingBooks() {
+  const filePath = path.join(__dirname, 'pendingBooks.json');
+  if (!fs.existsSync(filePath)) {
+    return [];
+  }
+  try {
+    const data = fs.readFileSync(filePath, 'utf-8');
+    const parsed = JSON.parse(data);
+    return parsed.pendingBooks || [];  // Fallback if pendingBooks key is missing
+  } catch (err) {
+    console.error('Error reading pendingBooks.json:', err);
+    return [];  // Return empty array on error
+  }
+}
+function writePendingBooks(pendingBooks) {
+  fs.writeFileSync(path.join(__dirname, 'pendingBooks.json'), JSON.stringify({ pendingBooks }, null, 2));
+}
+
+// ensure upload directory exists (no subfolders)
+const assetsDir = path.join(__dirname, 'bookAssets');
+if (!fs.existsSync(assetsDir)) fs.mkdirSync(assetsDir);
+
+// storage + filtering (simplified – everything goes to assetsDir)
+const storage = multer.diskStorage({
+  destination(req, file, cb) {
+    cb(null, assetsDir);  // all files (PDF + cover) go here
+  },
+  filename(req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  if (file.fieldname === 'file') {
+    // book must be PDF
+    if (file.mimetype === 'application/pdf') cb(null, true);
+    else cb(new Error('Book must be a PDF'));
+  } else if (file.fieldname === 'cover') {
+    // optional cover must be jpg/png
+    if (['image/jpeg', 'image/png'].includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Cover image must be JPEG or PNG'));
+  } else {
+    cb(null, false);
+  }
+};
+
+// 10‑MB limit on any single file
+const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
+
+app.post('/api/publish',
+    upload.fields([{ name: 'file', maxCount: 1 }, { name: 'cover', maxCount: 1 }]),
+    (req, res) => {
+  // console.log('Received publish request', req.body, req.files);
+  try {
+    const { title, authorName, genre, description } = req.body;
+    if (!title || !authorName || !genre || !description || !req.files.file) {
+      return res.status(400).json({ error: 'All fields required' });
+    }
+
+    const pendingBooks = readPendingBooks();
+
+    const pdfFile = req.files.file[0];
+    const coverFile = req.files.cover && req.files.cover[0];
+
+    const relativePdfPath = path.relative(__dirname, pdfFile.path);
+    const relativeCoverPath = coverFile ? path.relative(__dirname, coverFile.path) : '';
+
+    const newBook = {
+      id: Date.now(),
+      title,
+      authorName,
+      genre,
+      description,
+      filePath: relativePdfPath,
+      coverPath: relativeCoverPath,
+      status: 'pending',
+    };
+    pendingBooks.push(newBook);
+    writePendingBooks(pendingBooks);
+
+    res.status(200).json({ message: 'Book submitted' });
+  } catch (err) {
+    console.error('publish error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// End of Author helper
+
 
 // Start server
 app.listen(PORT, () => {

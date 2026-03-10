@@ -1,0 +1,197 @@
+import React, { useState, useEffect } from 'react';
+
+const GENRES = ['Fiction', 'Non-Fiction', 'Science', 'History'];
+
+const PublishPage = ({ currentUser }) => {
+  const [form, setForm] = useState({
+    title: '',
+    authorName: currentUser?.username || '',
+    genre: [],
+    description: '',
+    file: null,
+    cover: null,
+  });
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    setForm(f => ({ ...f, authorName: currentUser?.username || '' }));
+  }, [currentUser]);
+
+  const handleChange = (e) => {
+    const { name, value, files, type, checked } = e.target;
+
+    if (name === 'genre' && type === 'checkbox') {
+      setForm(f => {
+        const genres = new Set(f.genre);
+        if (checked) {
+          genres.add(value);
+        } else {
+          genres.delete(value);
+        }
+        return { ...f, genre: Array.from(genres) };
+      });
+      return;
+    }
+
+    setForm({
+      ...form,
+      [name]: files ? files[0] : value,
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (
+      !form.title ||
+      !form.authorName ||
+      form.genre.length === 0 ||      // require at least one
+      !form.file                         // PDF is required
+    ) {
+      setMessage('All fields other than description and cover are required.');
+      return;
+    }
+
+    // validation now at submit time only
+    if (form.genre.includes('Fiction') && form.genre.includes('Non-Fiction')) {
+      setMessage('You may not select both Fiction and Non‑Fiction at the same time.');
+      return;
+    }
+
+    // cover validations if supplied
+    if (form.cover) {
+      const { type, size } = form.cover;
+      if (!['image/jpeg', 'image/png'].includes(type)) {
+        setMessage('Cover image must be JPG or PNG.');
+        return;
+      }
+      if (size > 10 * 1024 * 1024) { // 10 MB limit
+        setMessage('Cover image must be smaller than 10 MB.');
+        return;
+      }
+    }
+
+    const formData = new FormData();
+    formData.append('title', form.title);
+    formData.append('authorName', form.authorName);
+    formData.append('genre', form.genre.join(','));
+    formData.append('description', form.description);
+    formData.append('file', form.file);
+    if (form.cover) formData.append('cover', form.cover);
+
+    try {
+      const response = await fetch('http://localhost:4000/api/publish', {
+        method: 'POST',
+        body: formData,
+      });
+      if (response.ok) {
+        setMessage('Book submitted for approval!');
+        setForm({
+          title: '',
+          authorName: currentUser?.username || '',
+          genre: [],
+          description: '',
+          file: null,
+          cover: null,
+        });
+      } else {
+        setMessage('Submission failed.');
+      }
+    } catch (error) {
+      setMessage('Error submitting book.');
+    }
+  };
+
+  return (
+    <div className="portal">
+      <h2>Publish a Book</h2>
+      <form onSubmit={handleSubmit}>
+        <div className="form-row">
+          <label htmlFor="title">Title</label>
+          <input
+            id="title"
+            type="text"
+            name="title"
+            placeholder="Book Title"
+            value={form.title}
+            onChange={handleChange}
+            className="input title-input"
+          />
+        </div>
+
+        <div className="form-row">
+          <label htmlFor="authorName">Author Name</label>
+          <input
+            id="authorName"
+            type="text"
+            name="authorName"
+            placeholder="Author Name"
+            value={form.authorName}
+            onChange={handleChange}
+            className="input"
+            readOnly
+          />
+        </div>
+
+        <div className="form-row">
+          <label>Genres</label>
+          <div className="genres">
+            {GENRES.map(g => (
+              <label key={g} className="genre-label">
+                <input
+                  type="checkbox"
+                  name="genre"
+                  value={g}
+                  checked={form.genre.includes(g)}
+                  onChange={handleChange}
+                />{' '}
+                {g}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="form-row">
+          <label htmlFor="description">Description</label>
+          <textarea
+            id="description"
+            name="description"
+            placeholder="Description"
+            value={form.description}
+            onChange={handleChange}
+            className="input description-input"
+            rows="5"
+          />
+        </div>
+
+        <div className="form-row">
+          <label htmlFor="file">Book File </label>
+          <input
+            id="file"
+            type="file"
+            name="file"
+            accept=".pdf"
+            onChange={handleChange}
+            className="input"
+          />
+        </div>
+
+        <div className="form-row">
+          <label htmlFor="cover">Cover Image</label>
+          <input
+            id="cover"
+            type="file"
+            name="cover"
+            accept="image/jpeg,image/png"
+            onChange={handleChange}
+            className="input"
+          />
+        </div>
+
+        <button type="submit" className="button">Submit for Approval</button>
+      </form>
+      {message && <p>{message}</p>}
+    </div>
+  );
+};
+
+export default PublishPage;

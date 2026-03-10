@@ -17,6 +17,10 @@ function LoginRegister() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
   const [portalRole, setPortalRole] = useState(null); // null or 'student'|'staff'|'author'|'librarian'
+  
+  // add state variable to hold current user info for AuthorPortal
+  const [currentUser, setCurrentUser] = useState(null);
+
 
   const handleChange = e => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -98,6 +102,7 @@ function LoginRegister() {
           setMessage(`Login successful! Welcome, ${data.user.fullName} (${data.user.role})`);
           setMessageType('success');
           setPortalRole(data.user.role); // Set portal role for routing
+          setCurrentUser(data.user); // !!! This probably should be changed for all Portal logic to access user info, not just role
         } else {
           setMessage(data.error || 'Login failed.');
           setMessageType('error');
@@ -111,7 +116,7 @@ function LoginRegister() {
 
   if (portalRole === 'student') return <StudentPortal />;
   if (portalRole === 'staff') return <StaffPortal />;
-  if (portalRole === 'author') return <AuthorPortal />;
+  if (portalRole === 'author') return <AuthorPortal currentUser={currentUser} />; // Other portals should be changed too i think
   if (portalRole === 'librarian') return <LibrarianPortal />;
 
   return (
