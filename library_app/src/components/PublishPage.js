@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ConfirmSubmitDialog from './ConfirmSubmitDialog';
 
 const GENRES = ['Fiction', 'Non-Fiction', 'Science', 'History'];
 
@@ -12,10 +13,53 @@ const PublishPage = ({ currentUser }) => {
     cover: null,
   });
   const [message, setMessage] = useState('');
+  const [showDialog, setShowDialog] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
 
   useEffect(() => {
     setForm(f => ({ ...f, authorUsername: currentUser?.username || '' }));
   }, [currentUser]);
+
+  // Load saved draft on component mount
+  useEffect(() => {
+    const savedDraft = localStorage.getItem(`publishDraft_${currentUser?.username}`);
+    console.log('Loading draft for user:', currentUser?.username);
+    console.log('Saved draft from localStorage:', savedDraft);
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        console.log('Parsed draft:', draft);
+        setForm(f => ({ ...f, ...draft }));
+        setDraftLoaded(true);
+      } catch (error) {
+        console.error('Error loading draft:', error);
+      }
+    }
+  }, [currentUser?.username]);
+
+  // Auto-save draft when component unmounts or before page unload
+  useEffect(() => {
+    if (!currentUser?.username) return;
+
+    const saveDraft = () => {
+      const draftToSave = { ...form };
+      // Don't save file and cover as they can't be serialized
+      delete draftToSave.file;
+      delete draftToSave.cover;
+      localStorage.setItem(`publishDraft_${currentUser.username}`, JSON.stringify(draftToSave));
+    };
+
+    const handleBeforeUnload = () => {
+      saveDraft();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      saveDraft(); // Save when component unmounts
+    };
+  }, [form, currentUser?.username]);
 
   const handleChange = (e) => {
     const { name, value, files, type, checked } = e.target;
@@ -39,7 +83,7 @@ const PublishPage = ({ currentUser }) => {
     });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (
       !form.title ||
@@ -70,6 +114,11 @@ const PublishPage = ({ currentUser }) => {
       }
     }
 
+    // Show preview dialog instead of submitting
+    setShowDialog(true);
+  };
+
+  const handleConfirmSubmit = async () => {
     const formData = new FormData();
     formData.append('title', form.title);
     formData.append('authorUsername', form.authorUsername);
@@ -94,6 +143,9 @@ const PublishPage = ({ currentUser }) => {
           file: null,
           cover: null,
         });
+        setShowDialog(false);
+        // Clear saved draft after successful submission
+        localStorage.removeItem(`publishDraft_${currentUser?.username}`);
       } else {
         setMessage('Submission failed.');
       }
@@ -190,6 +242,12 @@ const PublishPage = ({ currentUser }) => {
 
         <button type="submit" className="button">Submit for Approval</button>
       </form>
+      <ConfirmSubmitDialog
+        form={form}
+        onCancel={() => setShowDialog(false)}
+        onConfirm={handleConfirmSubmit}
+        show={showDialog}
+      />
       {message && <p>{message}</p>}
     </div>
   );

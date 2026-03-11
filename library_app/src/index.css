@@ -229,3 +229,13 @@ button[type="submit"]:hover {
   height: 100px;
 }
 
+.dialog-box > h3 {
+  color: #ffb86c;
+  margin-bottom: 16px;
+}
+
+.dialog-buttons {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+}
