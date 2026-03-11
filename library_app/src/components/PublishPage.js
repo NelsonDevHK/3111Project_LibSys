@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect  } from 'react';
 import ConfirmSubmitDialog from './ConfirmSubmitDialog';
 
 const GENRES = ['Fiction', 'Non-Fiction', 'Science', 'History'];
@@ -22,7 +22,8 @@ const PublishPage = ({ currentUser }) => {
 
   // Load saved draft on component mount
   useEffect(() => {
-    const savedDraft = localStorage.getItem(`publishDraft_${currentUser?.username}`);
+    const key = `publishDraft_${currentUser?.username}`;
+    const savedDraft = localStorage.getItem(key);
     console.log('Loading draft for user:', currentUser?.username);
     console.log('Saved draft from localStorage:', savedDraft);
     if (savedDraft) {
@@ -30,16 +31,21 @@ const PublishPage = ({ currentUser }) => {
         const draft = JSON.parse(savedDraft);
         console.log('Parsed draft:', draft);
         setForm(f => ({ ...f, ...draft }));
-        setDraftLoaded(true);
       } catch (error) {
         console.error('Error loading draft:', error);
       }
     }
+
+    // mark that load attempt has occurred (even if there was no draft)
+    setDraftLoaded(true);
   }, [currentUser?.username]);
 
   // Auto-save draft when component unmounts or before page unload
+  // only after we've loaded any existing draft, otherwise the
+  // empty initial state will overwrite it.
   useEffect(() => {
     if (!currentUser?.username) return;
+    if (!draftLoaded) return; // skip until after initial load
 
     const saveDraft = () => {
       const draftToSave = { ...form };
@@ -47,6 +53,7 @@ const PublishPage = ({ currentUser }) => {
       delete draftToSave.file;
       delete draftToSave.cover;
       localStorage.setItem(`publishDraft_${currentUser.username}`, JSON.stringify(draftToSave));
+      console.log('Draft saved:', draftToSave);
     };
 
     const handleBeforeUnload = () => {
@@ -59,7 +66,7 @@ const PublishPage = ({ currentUser }) => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       saveDraft(); // Save when component unmounts
     };
-  }, [form, currentUser?.username]);
+  }, [form, currentUser?.username, draftLoaded]);
 
   const handleChange = (e) => {
     const { name, value, files, type, checked } = e.target;
