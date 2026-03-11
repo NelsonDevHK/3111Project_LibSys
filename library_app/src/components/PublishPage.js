@@ -24,12 +24,9 @@ const PublishPage = ({ currentUser }) => {
   useEffect(() => {
     const key = `publishDraft_${currentUser?.username}`;
     const savedDraft = localStorage.getItem(key);
-    console.log('Loading draft for user:', currentUser?.username);
-    console.log('Saved draft from localStorage:', savedDraft);
     if (savedDraft) {
       try {
         const draft = JSON.parse(savedDraft);
-        console.log('Parsed draft:', draft);
         setForm(f => ({ ...f, ...draft }));
       } catch (error) {
         console.error('Error loading draft:', error);
@@ -53,7 +50,6 @@ const PublishPage = ({ currentUser }) => {
       delete draftToSave.file;
       delete draftToSave.cover;
       localStorage.setItem(`publishDraft_${currentUser.username}`, JSON.stringify(draftToSave));
-      console.log('Draft saved:', draftToSave);
     };
 
     const handleBeforeUnload = () => {
