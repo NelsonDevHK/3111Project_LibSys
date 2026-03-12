@@ -209,6 +209,14 @@ app.post('/api/submissions/:id', (req, res) => {
       book.rejectionReason = rejectionReason;
     }
 
+    // Save rejection reason to rejectionReason.json
+    const rejectionReasons = JSON.parse(fs.readFileSync('rejectionReason.json', 'utf-8'));
+    if (!rejectionReasons[book.authorUsername]) {
+      rejectionReasons[book.authorUsername] = [];
+    }
+    rejectionReasons[book.authorUsername].push(rejectionReason);
+    fs.writeFileSync('rejectionReason.json', JSON.stringify(rejectionReasons, null, 2));
+
     writePendingBooks(pendingBooks);
 
     res.json({ message: `Submission ${isApproved ? 'approved' : 'rejected'} successfully.` });
