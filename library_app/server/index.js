@@ -3,6 +3,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+const { randomUUID } = require('crypto');
 
 // File paths
 const USERS_FILE = path.join(__dirname, 'users.json');
@@ -118,6 +119,7 @@ function readRejectionReasons() {
         if (typeof entry === 'string') {
           didNormalize = true;
           return {
+            id: randomUUID(),
             bookTitle: '',
             rejectionReason: entry,
             hidden: false,
@@ -127,6 +129,7 @@ function readRejectionReasons() {
         if (!entry || typeof entry !== 'object') {
           didNormalize = true;
           return {
+            id: randomUUID(),
             bookTitle: '',
             rejectionReason: '',
             hidden: false,
@@ -134,6 +137,7 @@ function readRejectionReasons() {
         }
 
         const normalizedEntry = {
+          id: entry.id || randomUUID(),
           bookTitle: entry.bookTitle || '',
           rejectionReason: entry.rejectionReason || '',
           hidden: typeof entry.hidden === 'boolean' ? entry.hidden : false,
@@ -174,9 +178,10 @@ function addRejectionReason(authorUsername, bookTitle, rejectionReason, hidden) 
     parsed[authorUsername] = [];
   }
 
-  parsed[authorUsername].push({
-    bookTitle,
-    rejectionReason,
+  rejectionReasons[authorUsername].push({
+    id: randomUUID(),
+    bookTitle: bookTitle || '',
+    rejectionReason: rejectionReason.trim(),
     hidden,
   });
 
@@ -220,7 +225,7 @@ app.post('/api/publish',
   // console.log('Received publish request', req.body, req.files);
   try {
     const { title, authorUsername, authorFullName, genre, description } = req.body;
-    if (!title || !authorUsername || !authorFullName || !genre || !description || !req.files.file) {
+    if (!title || !authorUsername || !authorFullName || !genre  || !req.files.file) {
       return res.status(400).json({ error: 'All fields required' });
     }
 
@@ -311,6 +316,57 @@ app.post('/api/rejectionReason', (req, res) => {
   } catch (err) {
     console.error('Error saving rejection reason:', err);
     res.status(500).json({ error: 'Failed to save rejection reason.' });
+  }
+});
+
+app.get('/api/rejectionReason/:authorUsername', (req, res) => {
+  const { authorUsername } = req.params;
+
+  try {
+    const rejectionReasons = readRejectionReasons();
+    const authorReasons = Array.isArray(rejectionReasons[authorUsername])
+      ? rejectionReasons[authorUsername]
+      : [];
+
+    const visibleReasons = authorReasons.filter((entry) => !entry.hidden);
+
+    res.json({ rejectionReasons: visibleReasons });
+  } catch (err) {
+    console.error('Error fetching rejection reasons:', err);
+    res.status(500).json({ error: 'Failed to fetch rejection reasons.' });
+  }
+});
+
+app.delete('/api/rejectionReason/:authorUsername/:reasonId', (req, res) => {
+  const { authorUsername, reasonId } = req.params;
+
+  try {
+    const rejectionReasons = readRejectionReasons();
+    const authorReasons = Array.isArray(rejectionReasons[authorUsername])
+      ? rejectionReasons[authorUsername]
+      : null;
+
+    const reasonIndex = authorReasons
+      ? authorReasons.findIndex((entry) => entry.id === reasonId)
+      : -1;
+
+    if (!authorReasons || reasonIndex === -1) {
+      return res.status(404).json({ error: 'Rejection reason not found.' });
+    }
+
+    authorReasons.splice(reasonIndex, 1);
+
+    if (authorReasons.length === 0) {
+      delete rejectionReasons[authorUsername];
+    } else {
+      rejectionReasons[authorUsername] = authorReasons;
+    }
+
+    writeRejectionReasons(rejectionReasons);
+    res.json({ message: 'Rejection reason removed.' });
+  } catch (err) {
+    console.error('Error removing rejection reason:', err);
+    res.status(500).json({ error: 'Failed to remove rejection reason.' });
   }
 });
 
