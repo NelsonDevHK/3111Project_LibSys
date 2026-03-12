@@ -1,5 +1,5 @@
 import React, { useState, useEffect  } from 'react';
-import ConfirmSubmitDialog from './ConfirmSubmitDialog';
+import ConfirmSubmitPage from './ConfirmSubmitPage';
 
 const GENRES = ['Fiction', 'Non-Fiction', 'Science', 'History'];
 
@@ -13,7 +13,7 @@ const PublishPage = ({ currentUser }) => {
     cover: null,
   });
   const [message, setMessage] = useState('');
-  const [showDialog, setShowDialog] = useState(false);
+  const [showConfirmPage, setShowConfirmPage] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
 
   useEffect(() => {
@@ -117,8 +117,8 @@ const PublishPage = ({ currentUser }) => {
       }
     }
 
-    // Show preview dialog instead of submitting
-    setShowDialog(true);
+    // Navigate to confirmation page instead of opening a dialog
+    setShowConfirmPage(true);
   };
 
   const handleConfirmSubmit = async () => {
@@ -146,7 +146,7 @@ const PublishPage = ({ currentUser }) => {
           file: null,
           cover: null,
         });
-        setShowDialog(false);
+        setShowConfirmPage(false);
         // Clear saved draft after successful submission
         localStorage.removeItem(`publishDraft_${currentUser?.username}`);
       } else {
@@ -156,6 +156,16 @@ const PublishPage = ({ currentUser }) => {
       setMessage('Error submitting book.');
     }
   };
+
+  if (showConfirmPage) {
+    return (
+      <ConfirmSubmitPage
+        form={form}
+        onBack={() => setShowConfirmPage(false)}
+        onConfirm={handleConfirmSubmit}
+      />
+    );
+  }
 
   return (
     <div className="portal">
@@ -245,12 +255,6 @@ const PublishPage = ({ currentUser }) => {
 
         <button type="submit" className="button">Submit for Approval</button>
       </form>
-      <ConfirmSubmitDialog
-        form={form}
-        onCancel={() => setShowDialog(false)}
-        onConfirm={handleConfirmSubmit}
-        show={showDialog}
-      />
       {message && <p>{message}</p>}
     </div>
   );
