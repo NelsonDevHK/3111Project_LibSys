@@ -169,10 +169,10 @@ function AvailableBooks({ onBorrow }) {
               <td data-label="Publish Date">{book.publishDate}</td>
               <td data-label="Status">{book.status}</td>
               <td data-label="Summary">
-                {book.summary.length > 60 ? (
+                {book.summary && book.summary.length > 60 ? (
                   <button onClick={() => { setShowSummary(true); setSummaryContent(book.summary); }}>Read Summary</button>
                 ) : (
-                  book.summary
+                  book.summary || 'No summary available'
                 )}
               </td>
               <td data-label="Action">

@@ -34,7 +34,7 @@
       "genre": "History",
       "description": "A borrowed book for Task 1.4.",
       "publishDate": "2026-03-09",
-      "status": "borrowed",
+      "status": "available",
       "summary": "This is a summary of Borrowed Book.",
       "coverImage": "",
       "approved": true
