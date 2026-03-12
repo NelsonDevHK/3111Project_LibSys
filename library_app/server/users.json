@@ -9,20 +9,20 @@
     {
       "username": "staff1",
       "fullName": "Staff One",
-      "password": "Staff123",
+      "password": "1",
       "role": "staff"
     },
     {
       "username": "author1",
       "fullName": "Author One",
-      "password": "Author123",
+      "password": "1",
       "role": "author",
       "bio": "Test author bio"
     },
     {
       "username": "librarian1",
       "fullName": "Librarian One",
-      "password": "Librarian123",
+      "password": "1",
       "role": "librarian",
       "employeeId": "LIB001"
     },
