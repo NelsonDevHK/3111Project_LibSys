@@ -231,26 +231,72 @@ const PublishPage = ({ currentUser }) => {
 
         <div className="form-row">
           <label htmlFor="file">Book File </label>
-          <input
-            id="file"
-            type="file"
-            name="file"
-            accept=".pdf"
-            onChange={handleChange}
-            className="input"
-          />
+          {form.file ? (
+            <div className="file-selected-display">
+              <div className="file-selected-name">{form.file.name}</div>
+              <input
+                id="file"
+                type="file"
+                name="file"
+                accept=".pdf"
+                onChange={handleChange}
+                className="input file-input-hidden"
+              />
+              <button type="button" className="change-file-button" onClick={() => document.getElementById('file').click()}>
+                Change File
+              </button>
+            </div>
+          ) : (
+            <div className="file-selected-display">
+              <div className="file-selected-name file-placeholder">No file chosen</div>
+              <input
+                id="file"
+                type="file"
+                name="file"
+                accept=".pdf"
+                onChange={handleChange}
+                className="input file-input-hidden"
+              />
+              <button type="button" className="change-file-button" onClick={() => document.getElementById('file').click()}>
+                Choose File
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="form-row">
           <label htmlFor="cover">Cover Image</label>
-          <input
-            id="cover"
-            type="file"
-            name="cover"
-            accept="image/jpeg,image/png"
-            onChange={handleChange}
-            className="input"
-          />
+          {form.cover ? (
+            <div className="file-selected-display">
+              <div className="file-selected-name">{form.cover.name}</div>
+              <input
+                id="cover"
+                type="file"
+                name="cover"
+                accept="image/jpeg,image/png"
+                onChange={handleChange}
+                className="input file-input-hidden"
+              />
+              <button type="button" className="change-file-button" onClick={() => document.getElementById('cover').click()}>
+                Change Image
+              </button>
+            </div>
+          ) : (
+            <div className="file-selected-display">
+              <div className="file-selected-name file-placeholder">No file chosen</div>
+              <input
+                id="cover"
+                type="file"
+                name="cover"
+                accept="image/jpeg,image/png"
+                onChange={handleChange}
+                className="input file-input-hidden"
+              />
+              <button type="button" className="change-file-button" onClick={() => document.getElementById('cover').click()}>
+                Choose Image
+              </button>
+            </div>
+          )}
         </div>
 
         <button type="submit" className="button">Submit for Approval</button>
