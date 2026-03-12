@@ -1,13 +1,13 @@
 {
   "pendingBooks": [
     {
-      "id": 1773306673998,
-      "title": "qweqweqw",
-      "authorUsername": "1",
+      "id": 1773309166133,
+      "title": "qwe",
+      "authorUsername": "author1",
       "authorFullName": "Author One",
       "genre": "Non-Fiction",
-      "description": "qweqweqweqw",
-      "filePath": "bookAssets/1773306673996.pdf",
+      "description": "qwe",
+      "filePath": "bookAssets/1773309166129.pdf",
       "coverPath": "",
       "publishDate": "2026-03-12",
       "approved": false
