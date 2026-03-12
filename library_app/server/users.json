@@ -9,7 +9,7 @@
     {
       "username": "staff1",
       "fullName": "Staff One",
-      "password": "Staff123",
+      "password": "1",
       "role": "staff"
     },
     {
@@ -22,7 +22,7 @@
     {
       "username": "librarian1",
       "fullName": "Librarian One",
-      "password": "Librarian123",
+      "password": "1",
       "role": "librarian",
       "employeeId": "LIB001"
     },
