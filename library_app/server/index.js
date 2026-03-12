@@ -166,19 +166,21 @@ function writeRejectionReasons(rejectionReasons) {
   fs.writeFileSync(REJECTION_REASONS_FILE, JSON.stringify(rejectionReasons, null, 2));
 }
 
-function addRejectionReason(authorUsername, bookTitle, rejectionReason, hidden = false) {
-  const rejectionReasons = readRejectionReasons();
-  if (!rejectionReasons[authorUsername]) {
-    rejectionReasons[authorUsername] = [];
+function addRejectionReason(authorUsername, bookTitle, rejectionReason, hidden) {
+  const data = fs.readFileSync(REJECTION_REASONS_FILE, 'utf-8');
+  const parsed = JSON.parse(data);
+
+  if (!parsed[authorUsername]) {
+    parsed[authorUsername] = [];
   }
 
-  rejectionReasons[authorUsername].push({
-    bookTitle: bookTitle || '',
-    rejectionReason: rejectionReason.trim(),
+  parsed[authorUsername].push({
+    bookTitle,
+    rejectionReason,
     hidden,
   });
 
-  writeRejectionReasons(rejectionReasons);
+  fs.writeFileSync(REJECTION_REASONS_FILE, JSON.stringify(parsed, null, 2));
 }
 
 // ensure upload directory exists (no subfolders)
@@ -315,17 +317,17 @@ app.post('/api/rejectionReason', (req, res) => {
 // Endpoint to approve or reject a book submission
 app.post('/api/submissions/:id', (req, res) => {
   const { id } = req.params;
-  const { isApproved, rejectionReason } = req.body;
+  const { isApproved, rejectionReason, sendToAuthor } = req.body;
 
   try {
     const pendingBooks = readPendingBooks();
-    const bookIndex = pendingBooks.findIndex((book) => book.id === parseInt(id, 10));
+    const bookIndex = pendingBooks.findIndex((b) => b.id === parseInt(id, 10));
 
     if (bookIndex === -1) {
-      return res.status(404).json({ error: 'Submission not found.' });
+      return res.status(404).json({ error: 'Book not found.' });
     }
 
-    const [book] = pendingBooks.splice(bookIndex, 1);
+    const book = pendingBooks[bookIndex];
 
     if (isApproved) {
       const books = readBooks();
@@ -339,11 +341,14 @@ app.post('/api/submissions/:id', (req, res) => {
       }
       book.status = 'rejected';
       book.rejectionReason = rejectionReason;
+      addRejectionReason(book.authorUsername, book.title, rejectionReason, !sendToAuthor);
+
+      // Remove the rejected book from pendingBooks
+      pendingBooks.splice(bookIndex, 1);
     }
 
-    if (!isApproved) {
-      addRejectionReason(book.authorUsername, book.title, rejectionReason, false);
-    }
+    // Remove the processed book (approved or rejected) from pendingBooks
+    pendingBooks.splice(bookIndex, 1);
 
     writePendingBooks(pendingBooks);
 

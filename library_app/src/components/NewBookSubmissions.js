@@ -3,6 +3,9 @@ import React, { useState, useEffect } from 'react';
 function NewBookSubmissions() {
   const [submissions, setSubmissions] = useState([]);
   const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState(null);
+  const [sendToAuthor, setSendToAuthor] = useState(false);
 
   const fetchSubmissions = async () => {
     try {
@@ -14,13 +17,13 @@ function NewBookSubmissions() {
     }
   };
 
-  const handleApproval = async (submissionId, isApproved, rejectionReason = '') => {
+  const handleApproval = async (submissionId, isApproved, rejectionReason = '', sendToAuthor = false) => {
     setFeedbackMessage('');
     try {
       const res = await fetch(`http://localhost:4000/api/submissions/${submissionId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isApproved, rejectionReason })
+        body: JSON.stringify({ isApproved, rejectionReason, sendToAuthor })
       });
       const data = await res.json();
       if (res.ok) {
@@ -36,11 +39,20 @@ function NewBookSubmissions() {
 
   const confirmAction = (submissionId, isApproved) => {
     if (!isApproved) {
-      const reason = prompt('Enter rejection reason:');
-      if (!reason) return;
-      handleApproval(submissionId, false, reason);
+      setSelectedSubmissionId(submissionId);
     } else {
       handleApproval(submissionId, true);
+    }
+  };
+
+  const submitRejection = () => {
+    if (selectedSubmissionId && rejectionReason.trim()) {
+      handleApproval(selectedSubmissionId, false, rejectionReason, sendToAuthor);
+      setRejectionReason('');
+      setSendToAuthor(false);
+      setSelectedSubmissionId(null);
+    } else {
+      setFeedbackMessage('Please provide a rejection reason.');
     }
   };
 
@@ -86,6 +98,27 @@ function NewBookSubmissions() {
           )}
         </tbody>
       </table>
+      {selectedSubmissionId && (
+        <div className="rejection-box" style={{ marginTop: '20px' }}>
+          <h4 style={{ color: 'white' }}>Provide Rejection Reason</h4>
+          <textarea
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            placeholder="Enter rejection reason here..."
+            style={{ width: '300px', height: '150px', display: 'block', marginBottom: '10px' }}
+          />
+          <div style={{ marginBottom: '10px' }}>
+            <input
+              type="checkbox"
+              id="sendToAuthor"
+              checked={sendToAuthor}
+              onChange={(e) => setSendToAuthor(e.target.checked)}
+            />
+            <label htmlFor="sendToAuthor" style={{ marginLeft: '5px' }}>Send to Author</label>
+          </div>
+          <button onClick={submitRejection}>Submit Rejection</button>
+        </div>
+      )}
       {feedbackMessage && <div className="feedback">{feedbackMessage}</div>}
     </div>
   );
