@@ -172,6 +172,52 @@ app.post('/api/publish',
   }
 });
 
+// Endpoint to fetch pending book submissions
+app.get('/api/submissions', (req, res) => {
+  try {
+    const pendingBooks = readPendingBooks();
+    res.json(pendingBooks);
+  } catch (err) {
+    console.error('Error fetching submissions:', err);
+    res.status(500).json({ error: 'Failed to fetch submissions.' });
+  }
+});
+
+// Endpoint to approve or reject a book submission
+app.post('/api/submissions/:id', (req, res) => {
+  const { id } = req.params;
+  const { isApproved, rejectionReason } = req.body;
+
+  try {
+    const pendingBooks = readPendingBooks();
+    const bookIndex = pendingBooks.findIndex((book) => book.id === parseInt(id, 10));
+
+    if (bookIndex === -1) {
+      return res.status(404).json({ error: 'Submission not found.' });
+    }
+
+    const [book] = pendingBooks.splice(bookIndex, 1);
+
+    if (isApproved) {
+      const books = readBooks();
+      book.status = 'approved';
+      book.approved = true; // Ensure the book is marked as approved
+      books.push(book);
+      writeBooks(books);
+    } else {
+      book.status = 'rejected';
+      book.rejectionReason = rejectionReason;
+    }
+
+    writePendingBooks(pendingBooks);
+
+    res.json({ message: `Submission ${isApproved ? 'approved' : 'rejected'} successfully.` });
+  } catch (err) {
+    console.error('Error updating submission:', err);
+    res.status(500).json({ error: 'Failed to update submission.' });
+  }
+});
+
 // End of Author helper
 
 
