@@ -114,7 +114,7 @@ function LoginRegister() {
     }
   };
 
-  if (portalRole === 'student') return <StudentPortal />;
+  if (portalRole === 'student') return <StudentPortal currentUser={currentUser} />;
   if (portalRole === 'staff') return <StaffPortal />;
   if (portalRole === 'author') return <AuthorPortal currentUser={currentUser} />; // Other portals should be changed too i think
   if (portalRole === 'librarian') return <LibrarianPortal />;

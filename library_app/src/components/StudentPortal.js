@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import AvailableBooks from './AvailableBooks';
 
-function StudentPortal() {
+function StudentPortal({ currentUser }) {
   const [borrowMessage, setBorrowMessage] = useState('');
 
   const handleBorrow = async (bookId) => {
@@ -26,7 +26,7 @@ function StudentPortal() {
   return (
     <div className="portal">
       <h2>Student Portal</h2>
-      <p>Welcome, Student! This is your dashboard.</p>
+      <p>Welcome, {currentUser ? currentUser.username : 'Student'}! This is your dashboard.</p>
       <AvailableBooks onBorrow={handleBorrow} />
       {borrowMessage && <div className="success">{borrowMessage}</div>}
     </div>
