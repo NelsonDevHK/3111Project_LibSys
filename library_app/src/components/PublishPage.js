@@ -13,6 +13,7 @@ const PublishPage = ({ currentUser }) => {
     cover: null,
   });
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('');
   const [showConfirmPage, setShowConfirmPage] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
 
@@ -88,6 +89,8 @@ const PublishPage = ({ currentUser }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setMessage('');
+    setMessageType('');
     if (
       !form.title ||
       !form.authorUsername ||
@@ -95,12 +98,14 @@ const PublishPage = ({ currentUser }) => {
       !form.file                         // PDF is required
     ) {
       setMessage('All fields other than description and cover are required.');
+      setMessageType('error');
       return;
     }
 
     // validation now at submit time only
     if (form.genre.includes('Fiction') && form.genre.includes('Non-Fiction')) {
       setMessage('You may not select both Fiction and Non‑Fiction at the same time.');
+      setMessageType('error');
       return;
     }
 
@@ -109,10 +114,12 @@ const PublishPage = ({ currentUser }) => {
       const { type, size } = form.cover;
       if (!['image/jpeg', 'image/png'].includes(type)) {
         setMessage('Cover image must be JPG or PNG.');
+        setMessageType('error');
         return;
       }
       if (size > 10 * 1024 * 1024) { // 10 MB limit
         setMessage('Cover image must be smaller than 10 MB.');
+        setMessageType('error');
         return;
       }
     }
@@ -138,6 +145,7 @@ const PublishPage = ({ currentUser }) => {
       });
       if (response.ok) {
         setMessage('Book submitted for approval!');
+        setMessageType('success');
         setForm({
           title: '',
           authorUsername: currentUser?.username || '',
@@ -151,9 +159,11 @@ const PublishPage = ({ currentUser }) => {
         localStorage.removeItem(`publishDraft_${currentUser?.username}`);
       } else {
         setMessage('Submission failed.');
+        setMessageType('error');
       }
     } catch (error) {
       setMessage('Error submitting book.');
+      setMessageType('error');
     }
   };
 
@@ -301,7 +311,7 @@ const PublishPage = ({ currentUser }) => {
 
         <button type="submit" className="button">Submit for Approval</button>
       </form>
-      {message && <p>{message}</p>}
+      {message && <p className={messageType === 'success' ? 'success' : 'error'}>{message}</p>}
     </div>
   );
 };

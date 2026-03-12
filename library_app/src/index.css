@@ -55,6 +55,14 @@
   margin-bottom: 24px;
 }
 
+.portal p.success {
+  color: #4fd6b0;
+}
+
+.portal p.error {
+  color: #ff6188;
+}
+
 .books-list {
   margin-top: 24px;
 }

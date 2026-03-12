@@ -6,6 +6,7 @@ class Author extends User {
   constructor(username, fullName, password, bio) {
     super(username, fullName, password, 'author');
     this.bio = bio;
+    this.feedback = [];
   }
 }
 
