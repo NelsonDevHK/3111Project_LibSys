@@ -55,6 +55,14 @@
   margin-bottom: 24px;
 }
 
+.portal p.success {
+  color: #4fd6b0;
+}
+
+.portal p.error {
+  color: #ff6188;
+}
+
 .books-list {
   margin-top: 24px;
 }
@@ -107,6 +115,12 @@ button:hover {
   color: #4fd6b0;
   font-weight: 500;
   margin-top: 12px;
+}
+
+.feedback {
+  color: #4fd6b0; /* Updated color for success feedback */
+  font-weight: 500;
+  margin-top: 8px;
 }
 
 body {
@@ -229,6 +243,52 @@ button[type="submit"]:hover {
   height: 100px;
 }
 
+.file-selected-display {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #23232e;
+  border-radius: 4px;
+  border: 1px solid #44475a;
+}
+
+.file-selected-name {
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 400;
+  margin: 0;
+  word-break: break-word;
+  flex: 1;
+  align-self: center;
+}
+
+.file-placeholder {
+  color: #999999;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.change-file-button {
+  align-self: center;
+  background: #6272a4;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.change-file-button:hover {
+  background: #4fd6b0;
+  color: #23232e;
+}
+
 .dialog-box > h3 {
   color: #ffb86c;
   margin-bottom: 16px;
@@ -238,4 +298,60 @@ button[type="submit"]:hover {
   display: flex;
   flex-direction: row;
   gap: 12px;
+}
+
+.cover-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.cover-label {
+  color: #ffffff;
+}
+
+.rejected-books-section {
+  margin-bottom: 32px;
+  padding: 20px;
+  background: #23232e;
+  border: 1px solid #44475a;
+  border-radius: 8px;
+}
+
+.rejected-books-section h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: #ffb86c;
+}
+
+.rejected-books-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rejected-book-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: #292a2d;
+  border: 1px solid #44475a;
+  border-radius: 8px;
+}
+
+.rejected-book-copy {
+  flex: 1;
+}
+
+.portal .rejected-book-title {
+  margin: 0 0 8px;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.portal .rejected-book-reason {
+  margin: 0;
 }

@@ -47,6 +47,7 @@ Author
 Publish Date (the date when book is approved by librarian)
 Availability Status
 Book Abstract/Summary
+
 Task 1.4 Borrow Book:
 Using the available book screen (task 1.3), implement functionality for users to borrow a book.
 Ensure that the system checks for availability before allowing a borrow action.
@@ -138,20 +139,25 @@ Username: Check if the username is unique across all types of users (student, st
 Full Name: Check if Full Name is empty or not, if left blank show error message
 Password: Check if the password is strong or weak or empty. Show error messages if necessary.
 Search online what is the standard password limit and criteria used mostly and implement accordingly.
+
 For Task 1.2, 2.2, 3.2:
 Following requirement needs to be checked when user is login into system.
 Username: Check if the user belongs to this user type. For example, a student should not be able to login into staff account since username is unique. Show appropriate error message.
+
 For Task 1.3:
 Search and Filter Books: Allow users to find books faster as the library grows. Users can search by title, author; filter by genre, publish date, availability.
 Reading Summary: Allow user to read the book description (summary/abstract) before user borrow the book for reading. If Summary is too long pop-up a screen for quick read the summary.
+
 For Task 1.4:
 Multiple Selections: Allow users to select multiple books that user wants to borrow from system.
 Limit Borrow: The system should have some logical limit of number of books a user can borrow at a time (for example 5 books at max). Show appropriate error message.
 Max/Min Duration: The system should restrict the user to borrowing a book for max number of days (for example 10-14 days) also have some limit to check minimum time of borrowing (for example not less than 0 seconds). Show appropriate error message.
+
 For Task 2.3:
 Book Cover Image Upload: Allow authors to optionally upload a cover image for the book during publication. Validate image format (e.g., JPG, PNG) and size limits to ensure compatibility.
 Book Preview: Provide a preview functionality where authors can view a formatted summary of their book details (title, genre, description) before final submission.
 Multiple Genre Selection: Enable authors to select multiple genres for a book from a predefined list, improving categorization and future searchability.
 Auto-Save Draft: Implement an auto-save feature for the publication form, allowing authors to resume incomplete submissions later without losing data.
+
 For Task 3.3:
 Rejection Reason: Require or allow librarians to enter a brief reason for rejection, which can be stored and optionally sent as feedback to the author.

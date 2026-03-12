@@ -9,8 +9,8 @@ const ConfirmSubmitPage = ({ form, onBack, onConfirm }) => {
         <p><strong>Genres:</strong> {form.genre.length > 0 ? form.genre.join(', ') : 'Not provided'}</p>
         <p><strong>Description:</strong> {form.description || 'N/A'}</p>
         {form.cover ? (
-          <div>
-            <strong>Cover Image:</strong>
+          <div className="cover-preview">
+            <strong className="cover-label">Cover Image:</strong>
             <img
               src={URL.createObjectURL(form.cover)}
               alt="Cover Preview"

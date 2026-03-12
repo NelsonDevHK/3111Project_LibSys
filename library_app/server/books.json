@@ -8,7 +8,7 @@
       "genre": "Fiction",
       "description": "A test book for Task 1.3/1.4.",
       "publishDate": "2026-03-09",
-      "status": "available",
+      "status": "borrowed",
       "summary": "This is a summary of Dummy Book One.",
       "coverImage": "",
       "approved": true
@@ -21,7 +21,7 @@
       "genre": "Science",
       "description": "Another test book for Task 1.3/1.4.",
       "publishDate": "2026-03-09",
-      "status": "available",
+      "status": "borrowed",
       "summary": "This is a summary of Dummy Book Two.",
       "coverImage": "",
       "approved": true
@@ -34,10 +34,23 @@
       "genre": "History",
       "description": "A borrowed book for Task 1.4.",
       "publishDate": "2026-03-09",
-      "status": "available",
+      "status": "borrowed",
       "summary": "This is a summary of Borrowed Book.",
       "coverImage": "",
       "approved": true
+    },
+    {
+      "id": 1773307108231,
+      "title": "adsfadsf",
+      "authorUsername": "author1",
+      "authorFullName": "Author One",
+      "genre": "Fiction",
+      "description": "",
+      "filePath": "bookAssets/1773307108216.pdf",
+      "coverPath": "",
+      "publishDate": "2026-03-12",
+      "approved": true,
+      "status": "approved"
     }
   ]
 }

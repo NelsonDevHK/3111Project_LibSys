@@ -3,10 +3,12 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+const { randomUUID } = require('crypto');
 
 // File paths
 const USERS_FILE = path.join(__dirname, 'users.json');
 const BOOKS_FILE = path.join(__dirname, 'books.json');
+const REJECTION_REASONS_FILE = path.join(__dirname, 'rejectionReason.json');
 
 // Ignore already taken care
 const app = express();
@@ -101,6 +103,89 @@ function writePendingBooks(pendingBooks) {
   fs.writeFileSync(path.join(__dirname, 'pendingBooks.json'), JSON.stringify({ pendingBooks }, null, 2));
 }
 
+function readRejectionReasons() {
+  if (!fs.existsSync(REJECTION_REASONS_FILE)) {
+    return {};
+  }
+  try {
+    const data = fs.readFileSync(REJECTION_REASONS_FILE, 'utf-8');
+    const parsed = JSON.parse(data);
+    let didNormalize = false;
+
+    // Normalize legacy schema where values were plain strings.
+    Object.keys(parsed).forEach((authorUsername) => {
+      const entries = Array.isArray(parsed[authorUsername]) ? parsed[authorUsername] : [];
+      parsed[authorUsername] = entries.map((entry) => {
+        if (typeof entry === 'string') {
+          didNormalize = true;
+          return {
+            id: randomUUID(),
+            bookTitle: '',
+            rejectionReason: entry,
+            hidden: false,
+          };
+        }
+
+        if (!entry || typeof entry !== 'object') {
+          didNormalize = true;
+          return {
+            id: randomUUID(),
+            bookTitle: '',
+            rejectionReason: '',
+            hidden: false,
+          };
+        }
+
+        const normalizedEntry = {
+          id: entry.id || randomUUID(),
+          bookTitle: entry.bookTitle || '',
+          rejectionReason: entry.rejectionReason || '',
+          hidden: typeof entry.hidden === 'boolean' ? entry.hidden : false,
+        };
+
+        if (
+          normalizedEntry.bookTitle !== entry.bookTitle ||
+          normalizedEntry.rejectionReason !== entry.rejectionReason ||
+          normalizedEntry.hidden !== entry.hidden
+        ) {
+          didNormalize = true;
+        }
+
+        return normalizedEntry;
+      });
+    });
+
+    if (didNormalize) {
+      writeRejectionReasons(parsed);
+    }
+
+    return parsed;
+  } catch (err) {
+    console.error('Error reading rejectionReason.json:', err);
+    return {};
+  }
+}
+
+function writeRejectionReasons(rejectionReasons) {
+  fs.writeFileSync(REJECTION_REASONS_FILE, JSON.stringify(rejectionReasons, null, 2));
+}
+
+function addRejectionReason(authorUsername, bookTitle, rejectionReason, hidden = false) {
+  const rejectionReasons = readRejectionReasons();
+  if (!rejectionReasons[authorUsername]) {
+    rejectionReasons[authorUsername] = [];
+  }
+
+  rejectionReasons[authorUsername].push({
+    id: randomUUID(),
+    bookTitle: bookTitle || '',
+    rejectionReason: rejectionReason.trim(),
+    hidden,
+  });
+
+  writeRejectionReasons(rejectionReasons);
+}
+
 // ensure upload directory exists (no subfolders)
 const assetsDir = path.join(__dirname, 'bookAssets');
 if (!fs.existsSync(assetsDir)) fs.mkdirSync(assetsDir);
@@ -138,7 +223,7 @@ app.post('/api/publish',
   // console.log('Received publish request', req.body, req.files);
   try {
     const { title, authorUsername, authorFullName, genre, description } = req.body;
-    if (!title || !authorUsername || !authorFullName || !genre || !description || !req.files.file) {
+    if (!title || !authorUsername || !authorFullName || !genre  || !req.files.file) {
       return res.status(400).json({ error: 'All fields required' });
     }
 
@@ -183,10 +268,110 @@ app.get('/api/submissions', (req, res) => {
   }
 });
 
+// Compatibility endpoint for older flows that fetch pending books directly.
+app.get('/api/pendingBooks', (req, res) => {
+  try {
+    const pendingBooks = readPendingBooks();
+    res.json({ pendingBooks });
+  } catch (err) {
+    console.error('Error fetching pendingBooks:', err);
+    res.status(500).json({ error: 'Failed to fetch pending books.' });
+  }
+});
+
+// Compatibility endpoint for older flows that restore rejected books.
+app.post('/api/pendingBooks', (req, res) => {
+  try {
+    const book = req.body;
+    if (!book || !book.id) {
+      return res.status(400).json({ error: 'Invalid book payload.' });
+    }
+
+    const pendingBooks = readPendingBooks();
+    if (!pendingBooks.some((pendingBook) => pendingBook.id === book.id)) {
+      pendingBooks.push(book);
+      writePendingBooks(pendingBooks);
+    }
+
+    res.json({ message: 'Pending book stored.' });
+  } catch (err) {
+    console.error('Error storing pending book:', err);
+    res.status(500).json({ error: 'Failed to store pending book.' });
+  }
+});
+
+// Compatibility endpoint for older flows that save rejection reasons separately.
+app.post('/api/rejectionReason', (req, res) => {
+  const { authorUsername, bookTitle, rejectionReason, hidden } = req.body;
+
+  if (!authorUsername || !rejectionReason || !rejectionReason.trim()) {
+    return res.status(400).json({ error: 'authorUsername and rejectionReason are required.' });
+  }
+
+  try {
+    addRejectionReason(authorUsername, bookTitle, rejectionReason, Boolean(hidden));
+    res.json({ message: 'Rejection reason saved.' });
+  } catch (err) {
+    console.error('Error saving rejection reason:', err);
+    res.status(500).json({ error: 'Failed to save rejection reason.' });
+  }
+});
+
+app.get('/api/rejectionReason/:authorUsername', (req, res) => {
+  const { authorUsername } = req.params;
+
+  try {
+    const rejectionReasons = readRejectionReasons();
+    const authorReasons = Array.isArray(rejectionReasons[authorUsername])
+      ? rejectionReasons[authorUsername]
+      : [];
+
+    const visibleReasons = authorReasons.filter((entry) => !entry.hidden);
+
+    res.json({ rejectionReasons: visibleReasons });
+  } catch (err) {
+    console.error('Error fetching rejection reasons:', err);
+    res.status(500).json({ error: 'Failed to fetch rejection reasons.' });
+  }
+});
+
+app.delete('/api/rejectionReason/:authorUsername/:reasonId', (req, res) => {
+  const { authorUsername, reasonId } = req.params;
+
+  try {
+    const rejectionReasons = readRejectionReasons();
+    const authorReasons = Array.isArray(rejectionReasons[authorUsername])
+      ? rejectionReasons[authorUsername]
+      : null;
+
+    const reasonIndex = authorReasons
+      ? authorReasons.findIndex((entry) => entry.id === reasonId)
+      : -1;
+
+    if (!authorReasons || reasonIndex === -1) {
+      return res.status(404).json({ error: 'Rejection reason not found.' });
+    }
+
+    authorReasons.splice(reasonIndex, 1);
+
+    if (authorReasons.length === 0) {
+      delete rejectionReasons[authorUsername];
+    } else {
+      rejectionReasons[authorUsername] = authorReasons;
+    }
+
+    writeRejectionReasons(rejectionReasons);
+    res.json({ message: 'Rejection reason removed.' });
+  } catch (err) {
+    console.error('Error removing rejection reason:', err);
+    res.status(500).json({ error: 'Failed to remove rejection reason.' });
+  }
+});
+
 // Endpoint to approve or reject a book submission
 app.post('/api/submissions/:id', (req, res) => {
   const { id } = req.params;
-  const { isApproved, rejectionReason } = req.body;
+  const { isApproved, rejectionReason, sendToAuthor } = req.body;
 
   try {
     const pendingBooks = readPendingBooks();
@@ -205,17 +390,16 @@ app.post('/api/submissions/:id', (req, res) => {
       books.push(book);
       writeBooks(books);
     } else {
+      if (!rejectionReason || !rejectionReason.trim()) {
+        return res.status(400).json({ error: 'Rejection reason is required.' });
+      }
       book.status = 'rejected';
       book.rejectionReason = rejectionReason;
     }
 
-    // Save rejection reason to rejectionReason.json
-    const rejectionReasons = JSON.parse(fs.readFileSync('rejectionReason.json', 'utf-8'));
-    if (!rejectionReasons[book.authorUsername]) {
-      rejectionReasons[book.authorUsername] = [];
+    if (!isApproved) {
+      addRejectionReason(book.authorUsername, book.title, rejectionReason, !sendToAuthor);
     }
-    rejectionReasons[book.authorUsername].push(rejectionReason);
-    fs.writeFileSync('rejectionReason.json', JSON.stringify(rejectionReasons, null, 2));
 
     writePendingBooks(pendingBooks);
 
