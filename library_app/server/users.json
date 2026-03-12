@@ -15,7 +15,7 @@
     {
       "username": "author1",
       "fullName": "Author One",
-      "password": "Author123",
+      "password": "1",
       "role": "author",
       "bio": "Test author bio"
     },
@@ -31,6 +31,13 @@
       "fullName": "Test User",
       "password": "Test1234",
       "role": "student"
+    },
+    {
+      "username": "HUI",
+      "fullName": "HUI",
+      "password": "HUI1234567",
+      "role": "author",
+      "bio": "33"
     }
   ]
 }
