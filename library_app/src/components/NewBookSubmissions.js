@@ -14,52 +14,16 @@ function NewBookSubmissions() {
     }
   };
 
-  const handleRejectionReason = async (authorUsername, rejectionReason) => {
-    try {
-      const res = await fetch('http://localhost:4000/api/rejectionReason', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ authorUsername, rejectionReason })
-      });
-      if (!res.ok) {
-        throw new Error('Failed to save rejection reason.');
-      }
-    } catch {
-      setFeedbackMessage('Failed to save rejection reason.');
-    }
-  };
-
-  const storeRejectedBook = async (book) => {
-    try {
-      const res = await fetch('http://localhost:4000/api/pendingBooks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(book)
-      });
-      if (!res.ok) {
-        throw new Error('Failed to store rejected book.');
-      }
-    } catch {
-      setFeedbackMessage('Failed to store rejected book.');
-    }
-  };
-
-  const handleApproval = async (submissionId, isApproved, rejectionReason = '', book = null) => {
+  const handleApproval = async (submissionId, isApproved, rejectionReason = '') => {
     setFeedbackMessage('');
     try {
       const res = await fetch(`http://localhost:4000/api/submissions/${submissionId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isApproved })
+        body: JSON.stringify({ isApproved, rejectionReason })
       });
       const data = await res.json();
       if (res.ok) {
-        if (!isApproved) {
-          await handleRejectionReason(data.authorUsername, rejectionReason);
-          if (book) {
-            await storeRejectedBook(book);
-          }
-        }
         setFeedbackMessage(`Submission ${isApproved ? 'approved' : 'rejected'} successfully.`);
         fetchSubmissions();
       } else {
@@ -70,11 +34,11 @@ function NewBookSubmissions() {
     }
   };
 
-  const confirmAction = (submissionId, isApproved, authorUsername, book) => {
+  const confirmAction = (submissionId, isApproved) => {
     if (!isApproved) {
       const reason = prompt('Enter rejection reason:');
       if (!reason) return;
-      handleApproval(submissionId, false, reason, book);
+      handleApproval(submissionId, false, reason);
     } else {
       handleApproval(submissionId, true);
     }
@@ -115,7 +79,7 @@ function NewBookSubmissions() {
                 <td>{submission.status}</td>
                 <td>
                   <button onClick={() => confirmAction(submission.id, true)}>Approve</button>
-                  <button onClick={() => confirmAction(submission.id, false, submission.authorUsername, submission)}>Reject</button>
+                  <button onClick={() => confirmAction(submission.id, false)}>Reject</button>
                 </td>
               </tr>
             ))
