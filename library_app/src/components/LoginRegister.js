@@ -17,10 +17,7 @@ function LoginRegister() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
   const [portalRole, setPortalRole] = useState(null); // null or 'student'|'staff'|'author'|'librarian'
-  
-  // add state variable to hold current user info for AuthorPortal
   const [currentUser, setCurrentUser] = useState(null);
-
 
   const handleChange = e => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -33,7 +30,6 @@ function LoginRegister() {
     setForm({ username: '', password: '', fullName: '', role: 'student', bio: '', employeeId: '' });
   };
 
-  // Always reset role to 'student' when switching forms or after login
   React.useEffect(() => {
     setForm(form => ({ ...form, role: 'student' }));
   }, [isRegister]);
@@ -58,9 +54,6 @@ function LoginRegister() {
         setMessageType('error');
         return;
       }
-      // Prepare payload
-      // payload: registration data sent to backend
-      // Contains username, fullName, password, role, and optionally bio/employeeId
       const payload = {
         username: form.username,
         fullName: form.fullName,
@@ -90,7 +83,6 @@ function LoginRegister() {
         setMessageType('error');
       }
     } else {
-      // Login
       try {
         const res = await fetch('http://localhost:4000/api/login', {
           method: 'POST',
@@ -101,8 +93,8 @@ function LoginRegister() {
         if (res.ok) {
           setMessage(`Login successful! Welcome, ${data.user.fullName} (${data.user.role})`);
           setMessageType('success');
-          setPortalRole(data.user.role); // Set portal role for routing
-          setCurrentUser(data.user); // !!! This probably should be changed for all Portal logic to access user info, not just role
+          setPortalRole(data.user.role);
+          setCurrentUser(data.user);
         } else {
           setMessage(data.error || 'Login failed.');
           setMessageType('error');
@@ -114,10 +106,17 @@ function LoginRegister() {
     }
   };
 
-  if (portalRole === 'student') return <StudentPortal currentUser={currentUser} />;
-  if (portalRole === 'staff') return <StaffPortal />;
-  if (portalRole === 'author') return <AuthorPortal currentUser={currentUser} />; // Other portals should be changed too i think
-  if (portalRole === 'librarian') return <LibrarianPortal />;
+  const onLogout = () => {
+    setPortalRole(null);
+    setCurrentUser(null);
+    setMessage('You have been logged out.');
+    setMessageType('info');
+  };
+
+  if (portalRole === 'student') return <StudentPortal currentUser={currentUser} onLogout={onLogout} />;
+  if (portalRole === 'staff') return <StaffPortal currentUser={currentUser} onLogout={onLogout} />;
+  if (portalRole === 'author') return <AuthorPortal currentUser={currentUser} onLogout={onLogout} />;
+  if (portalRole === 'librarian') return <LibrarianPortal currentUser={currentUser} onLogout={onLogout} />;
 
   return (
     <div className="container">
@@ -127,7 +126,6 @@ function LoginRegister() {
           <>
             <label htmlFor="fullName">Full Name</label>
             <input type="text" id="fullName" name="fullName" value={form.fullName} onChange={handleChange} required />
-            {/* Role selection for registration */}
             <label htmlFor="role">Role</label>
             <select id="role" name="role" value={form.role} onChange={handleChange}>
               <option value="student">Student</option>
@@ -149,7 +147,6 @@ function LoginRegister() {
             )}
           </>
         )}
-        {/* Always show role selection for login */}
         {!isRegister && (
           <>
             <label htmlFor="role">Role</label>
