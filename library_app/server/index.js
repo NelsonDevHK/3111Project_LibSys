@@ -374,34 +374,44 @@ app.post('/api/submissions/:id', (req, res) => {
   const { isApproved, rejectionReason, sendToAuthor } = req.body;
 
   try {
+    console.log(`Processing submission with ID: ${id}`);
+    console.log(`Request body:`, req.body);
+
     const pendingBooks = readPendingBooks();
-    const bookIndex = pendingBooks.findIndex((book) => book.id === parseInt(id, 10));
+    console.log(`Pending books:`, pendingBooks);
+
+    const bookIndex = pendingBooks.findIndex((b) => b.id === Number(id)); // Ensure `id` is treated as a number
 
     if (bookIndex === -1) {
-      return res.status(404).json({ error: 'Submission not found.' });
+      console.error(`Book with ID ${id} not found in pendingBooks.`);
+      return res.status(404).json({ error: 'Book not found.' });
     }
 
-    const [book] = pendingBooks.splice(bookIndex, 1);
+    const book = pendingBooks[bookIndex];
+    console.log(`Found book:`, book);
 
     if (isApproved) {
       const books = readBooks();
-      book.status = 'approved';
-      book.approved = true; // Ensure the book is marked as approved
+      book.status = 'available'; // Set the status to 'available' instead of 'borrowed'
+      book.approved = true;
       books.push(book);
       writeBooks(books);
+      console.log(`Book approved and added to books.json.`);
     } else {
       if (!rejectionReason || !rejectionReason.trim()) {
+        console.error(`Rejection reason is missing or empty.`);
         return res.status(400).json({ error: 'Rejection reason is required.' });
       }
       book.status = 'rejected';
       book.rejectionReason = rejectionReason;
-    }
-
-    if (!isApproved) {
       addRejectionReason(book.authorUsername, book.title, rejectionReason, !sendToAuthor);
+      console.log(`Book rejected with reason: ${rejectionReason}`);
     }
 
+    // Remove the processed book (approved or rejected) from pendingBooks
+    pendingBooks.splice(bookIndex, 1);
     writePendingBooks(pendingBooks);
+    console.log(`Book removed from pendingBooks.json.`);
 
     res.json({ message: `Submission ${isApproved ? 'approved' : 'rejected'} successfully.` });
   } catch (err) {
