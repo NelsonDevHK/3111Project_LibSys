@@ -106,17 +106,21 @@ function LoginRegister() {
     }
   };
 
-  const onLogout = () => {
+  const onLogout = (logoutMessage = 'You have been logged out.') => {
     setPortalRole(null);
     setCurrentUser(null);
-    setMessage('You have been logged out.');
+    setMessage(logoutMessage);
     setMessageType('info');
   };
 
-  if (portalRole === 'student') return <StudentPortal currentUser={currentUser} onLogout={onLogout} />;
-  if (portalRole === 'staff') return <StaffPortal currentUser={currentUser} onLogout={onLogout} />;
-  if (portalRole === 'author') return <AuthorPortal currentUser={currentUser} onLogout={onLogout} />;
-  if (portalRole === 'librarian') return <LibrarianPortal currentUser={currentUser} onLogout={onLogout} />;
+  const handleProfileUpdated = (updatedUser) => {
+    setCurrentUser(updatedUser);
+  };
+
+  if (portalRole === 'student') return <StudentPortal currentUser={currentUser} onLogout={onLogout} onProfileUpdated={handleProfileUpdated} />;
+  if (portalRole === 'staff') return <StaffPortal currentUser={currentUser} onLogout={onLogout} onProfileUpdated={handleProfileUpdated} />;
+  if (portalRole === 'author') return <AuthorPortal currentUser={currentUser} onLogout={onLogout} onProfileUpdated={handleProfileUpdated} />;
+  if (portalRole === 'librarian') return <LibrarianPortal currentUser={currentUser} onLogout={onLogout} onProfileUpdated={handleProfileUpdated} />;
 
   return (
     <div className="container">

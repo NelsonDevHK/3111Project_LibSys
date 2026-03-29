@@ -1,7 +1,8 @@
 import React from 'react';
 import BookBorrowSection from './BookBorrowSection';
+import ManageProfileScreen from '../ManageProfileScreen';
 
-function StudentPortal({ currentUser, onLogout }) {
+function StudentPortal({ currentUser, onLogout, onProfileUpdated }) {
   return (
     <div className="portal">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -10,6 +11,11 @@ function StudentPortal({ currentUser, onLogout }) {
       </div>
       <p>Welcome, {currentUser ? currentUser.username : 'Student'}! This is your dashboard.</p>
       <BookBorrowSection currentUser={currentUser} />
+      <ManageProfileScreen
+        currentUser={currentUser}
+        onProfileUpdated={onProfileUpdated}
+        onForceLogout={onLogout}
+      />
     </div>
   );
 }

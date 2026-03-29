@@ -1,8 +1,9 @@
 import React from 'react';
 import PublishPage from './PublishPage';
 import RejectedBooksSection from './RejectedBooksSection';
+import ManageProfileScreen from '../ManageProfileScreen';
 
-const AuthorPortal = ({ currentUser, onLogout }) => {
+const AuthorPortal = ({ currentUser, onLogout, onProfileUpdated }) => {
   return (
     <div className="portal">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -12,6 +13,11 @@ const AuthorPortal = ({ currentUser, onLogout }) => {
       <p>Welcome, {currentUser.username}! This is your dashboard.</p>
       <RejectedBooksSection currentUser={currentUser} />
       <PublishPage currentUser={currentUser} />
+      <ManageProfileScreen
+        currentUser={currentUser}
+        onProfileUpdated={onProfileUpdated}
+        onForceLogout={onLogout}
+      />
     </div>
   );
 };

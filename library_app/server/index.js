@@ -25,6 +25,13 @@ function writeUsers(users) {
   fs.writeFileSync(USERS_FILE, JSON.stringify({ users }, null, 2));
 }
 
+function validatePassword(password) {
+  const minLength = 8;
+  const hasLetter = /[a-zA-Z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  return password.length >= minLength && hasLetter && hasNumber;
+}
+
 // Book helpers
 function readBooks() {
   const data = fs.readFileSync(BOOKS_FILE, 'utf-8');
@@ -61,6 +68,83 @@ app.post('/api/login', (req, res) => {
   }
   res.json({ message: 'Login successful!', user });
 });
+
+//Update profile start
+
+
+app.post('/api/profile/update', (req, res) => {
+  const { username, role, currentPassword, fullName, password, employeeId, bio } = req.body;
+
+  if (!username || !role || !currentPassword) {
+    return res.status(400).json({ error: 'username, role, and currentPassword are required.' });
+  }
+
+  const users = readUsers();
+  const userIndex = users.findIndex(
+    (u) => u.username === username && u.role === role
+  );
+
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'User not found.' });
+  }
+
+  const user = users[userIndex];
+  if (user.password !== currentPassword) {
+    return res.status(401).json({ error: 'Current password is incorrect.' });
+  }
+
+  const nextFullName = typeof fullName === 'string' ? fullName.trim() : user.fullName;
+  if (!nextFullName) {
+    return res.status(400).json({ error: 'Full Name cannot be empty.' });
+  }
+
+  const wantsPasswordChange = typeof password === 'string' && password.length > 0;
+  if (wantsPasswordChange && !validatePassword(password)) {
+    return res.status(400).json({
+      error: 'Password must be at least 8 characters, include a letter and a number.'
+    });
+  }
+
+  const isLibrarian = user.role === 'librarian';
+  const isAuthor = user.role === 'author';
+  const nextEmployeeId = isLibrarian
+    ? (typeof employeeId === 'string' ? employeeId.trim() : (user.employeeId || ''))
+    : undefined;
+  const nextBio = isAuthor
+    ? (typeof bio === 'string' ? bio.trim() : (user.bio || ''))
+    : undefined;
+
+  const hasFullNameChange = nextFullName !== user.fullName;
+  const hasPasswordChange = wantsPasswordChange && password !== user.password;
+  const hasEmployeeIdChange = isLibrarian && nextEmployeeId !== (user.employeeId || '');
+  const hasBioChange = isAuthor && nextBio !== (user.bio || '');
+
+  if (!hasFullNameChange && !hasPasswordChange && !hasEmployeeIdChange && !hasBioChange) {
+    return res.status(400).json({ error: 'No profile changes detected.' });
+  }
+
+  user.fullName = nextFullName;
+  if (hasPasswordChange) {
+    user.password = password;
+  }
+  if (isLibrarian) {
+    user.employeeId = nextEmployeeId;
+  }
+  if (isAuthor) {
+    user.bio = nextBio;
+  }
+
+  users[userIndex] = user;
+  writeUsers(users);
+
+  res.json({
+    message: 'Profile updated successfully.',
+    passwordChanged: hasPasswordChange,
+    user,
+  });
+});
+
+// Update profile end
 
 // Ennnnnnnnnnnnd Ignore already taken care
 

@@ -164,7 +164,7 @@ label {
   color: #ffb86c;
 }
 
-input, select {
+input, select, textarea {
   margin: 5px;
   padding: 8px;
   border: 1px solid #44475a;
@@ -207,6 +207,12 @@ button[type="submit"]:hover {
 }
 .error {
   color: #ff6188;
+  margin-top: 8px;
+  font-weight: 500;
+}
+
+.info {
+  color: #8be9fd;
   margin-top: 8px;
   font-weight: 500;
 }
@@ -354,4 +360,51 @@ button[type="submit"]:hover {
 
 .portal .rejected-book-reason {
   margin: 0;
+}
+
+.manage-profile-box {
+  margin-top: 28px;
+  padding: 20px;
+  background: #23232e;
+  border: 1px solid #44475a;
+  border-radius: 8px;
+}
+
+.manage-profile-box h3 {
+  margin-top: 0;
+  color: #ffb86c;
+}
+
+.manage-profile-box form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.manage-profile-box input {
+  margin: 0;
+}
+
+.password-strength-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #e6e6e6;
+  font-size: 0.95rem;
+}
+
+.strength-none {
+  color: #8f93a2;
+}
+
+.strength-weak {
+  color: #ff6188;
+}
+
+.strength-medium {
+  color: #ffb86c;
+}
+
+.strength-strong {
+  color: #4fd6b0;
 }
