@@ -504,33 +504,36 @@ function addRejectionReason(authorUsername, bookTitle, rejectionReason, hidden =
 const assetsDir = path.join(__dirname, 'bookAssets');
 if (!fs.existsSync(assetsDir)) fs.mkdirSync(assetsDir);
 
-function removePendingBookAssets(book) {
-  const assetPaths = [book?.filePath, book?.coverPath].filter(
-    (assetPath) => typeof assetPath === 'string' && assetPath.trim()
-  );
+// deprecated function to remove pending book assets (PDF + cover) when a book is rejected. 
+// removed for nice-to-have feature for Task 2.4
 
-  assetPaths.forEach((assetPath) => {
-    const resolvedPath = path.resolve(__dirname, assetPath);
-    const relativeToAssetsDir = path.relative(assetsDir, resolvedPath);
-    const isInAssetsDir =
-      relativeToAssetsDir &&
-      !relativeToAssetsDir.startsWith('..') &&
-      !path.isAbsolute(relativeToAssetsDir);
+// function removePendingBookAssets(book) {
+//   const assetPaths = [book?.filePath, book?.coverPath].filter(
+//     (assetPath) => typeof assetPath === 'string' && assetPath.trim()
+//   );
 
-    if (!isInAssetsDir) {
-      console.warn(`Skipped deleting asset outside bookAssets: ${assetPath}`);
-      return;
-    }
+//   assetPaths.forEach((assetPath) => {
+//     const resolvedPath = path.resolve(__dirname, assetPath);
+//     const relativeToAssetsDir = path.relative(assetsDir, resolvedPath);
+//     const isInAssetsDir =
+//       relativeToAssetsDir &&
+//       !relativeToAssetsDir.startsWith('..') &&
+//       !path.isAbsolute(relativeToAssetsDir);
 
-    try {
-      if (fs.existsSync(resolvedPath)) {
-        fs.unlinkSync(resolvedPath);
-      }
-    } catch (err) {
-      console.error(`Failed to delete asset ${resolvedPath}:`, err);
-    }
-  });
-}
+//     if (!isInAssetsDir) {
+//       console.warn(`Skipped deleting asset outside bookAssets: ${assetPath}`);
+//       return;
+//     }
+
+//     try {
+//       if (fs.existsSync(resolvedPath)) {
+//         fs.unlinkSync(resolvedPath);
+//       }
+//     } catch (err) {
+//       console.error(`Failed to delete asset ${resolvedPath}:`, err);
+//     }
+//   });
+// }
 
 // storage + filtering (simplified – everything goes to assetsDir)
 const storage = multer.diskStorage({
@@ -870,7 +873,6 @@ app.post('/api/submissions/:id', (req, res) => {
       writePublishedBooks(publishedBooks);
       
       addNotificationForUser(book.authorUsername, 'bookUpdates', `Book rejected: "${book.title}" was rejected. Reason: ${rejectionReason}`);
-      removePendingBookAssets(book);
       console.log(`Book rejected with reason: ${rejectionReason}`);
     }
 
