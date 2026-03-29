@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import StudentPortal from './StudentPortal';
 import StaffPortal from './StaffPortal';
-import AuthorPortal from './AuthorPortal';
+import AuthorPortal from './Author/AuthorPortal';
 import LibrarianPortal from './LibrarianPortal';
 
 function validatePassword(password) {
