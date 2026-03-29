@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import StudentPortal from './StudentPortal';
-import StaffPortal from './StaffPortal';
+import StudentPortal from './Student_Staff/StudentPortal';
+import StaffPortal from './Student_Staff/StaffPortal';
 import AuthorPortal from './Author/AuthorPortal';
-import LibrarianPortal from './LibrarianPortal';
+import LibrarianPortal from './Librarian/LibrarianPortal';
 
 function validatePassword(password) {
   const minLength = 8;
