@@ -120,20 +120,6 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
     }
   };
 
-  // Get status badge color
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'approved':
-        return '#4fd6b0';
-      case 'rejected':
-        return '#ff6188';
-      case 'pending':
-        return '#ffb86c';
-      default:
-        return '#8f93a2';
-    }
-  };
-
   // Get status text color
   const getStatusTextColor = (status) => {
     switch (status) {
