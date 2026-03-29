@@ -2,6 +2,46 @@
   "author1": {
     "bookUpdates": [
       {
+        "id": "c6eb97ad-7c67-47f7-aac3-c0089fdd5f17",
+        "category": "bookUpdates",
+        "message": "Book rejected: \"5\" was rejected. Reason: a",
+        "timestamp": "2026-03-29T17:43:18.088Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "f7118475-662e-48e8-9b8a-f30003b17b02",
+        "category": "bookUpdates",
+        "message": "Book rejected: \"4\" was rejected. Reason: 1",
+        "timestamp": "2026-03-29T17:42:36.851Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "f064716d-df51-4a87-8916-2f3eb9c9bd91",
+        "category": "bookUpdates",
+        "message": "Book rejected: \"3\" was rejected. Reason: 1",
+        "timestamp": "2026-03-29T17:41:59.936Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "82962daf-dd04-4b18-829f-c09f1eb97eac",
+        "category": "bookUpdates",
+        "message": "Book approved: \"2\" has been approved and published.",
+        "timestamp": "2026-03-29T17:41:57.023Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "5d617b67-92a0-4c78-b880-8f4b16ac00db",
+        "category": "bookUpdates",
+        "message": "Book approved: \"1\" has been approved and published.",
+        "timestamp": "2026-03-29T17:41:56.035Z",
+        "unread": true,
+        "archived": false
+      },
+      {
         "id": "6223b1b9-5306-4da1-8088-b5b16e4e9aae",
         "category": "bookUpdates",
         "message": "Book rejected: \"title\" was rejected. Reason: rejection1",
@@ -18,23 +58,32 @@
   },
   "librarian1": {
     "bookUpdates": [],
-    "newSubmissions": [],
-    "accountUpdates": [
+    "newSubmissions": [
       {
-        "id": "a49ef92a-3b8b-4353-88b2-d47f115a4d19",
-        "category": "accountUpdates",
-        "message": "User account updated: author1 (author). Changed: Password.",
-        "timestamp": "2026-03-29T16:43:41.584Z",
-        "unread": false,
+        "id": "d968b9e6-6806-434c-8534-d3571368f5bd",
+        "category": "newSubmissions",
+        "message": "New submission: \"5\" by author1.",
+        "timestamp": "2026-03-29T17:43:02.226Z",
+        "unread": true,
         "archived": false
       },
+      {
+        "id": "ceded8a6-d0dc-498d-9e30-91ff743ba87b",
+        "category": "newSubmissions",
+        "message": "New submission: \"4\" by author1.",
+        "timestamp": "2026-03-29T17:42:24.291Z",
+        "unread": true,
+        "archived": false
+      }
+    ],
+    "accountUpdates": [
       {
         "id": "f4e69ff5-7cb8-4ba6-8f45-016254221154",
         "category": "accountUpdates",
         "message": "User account updated: author1 (author). Changed: Bio.",
         "timestamp": "2026-03-29T16:43:00.961Z",
         "unread": false,
-        "archived": false
+        "archived": true
       }
     ],
     "dueReminders": [],

@@ -10,6 +10,7 @@ const USERS_FILE = path.join(__dirname, 'users.json');
 const BOOKS_FILE = path.join(__dirname, 'books.json');
 const REJECTION_REASONS_FILE = path.join(__dirname, 'rejectionReason.json');
 const NOTIFICATIONS_FILE = path.join(__dirname, 'notifications.json');
+const PUBLISHED_BOOKS_FILE = path.join(__dirname, 'publishedBooks.json');
 
 // Ignore already taken care
 const app = express();
@@ -182,6 +183,30 @@ function readBooks() {
 }
 function writeBooks(books) {
   fs.writeFileSync(BOOKS_FILE, JSON.stringify({ books }, null, 2));
+}
+
+// Published Books helpers
+function readPublishedBooks() {
+  if (!fs.existsSync(PUBLISHED_BOOKS_FILE)) {
+    return {};
+  }
+  try {
+    const data = fs.readFileSync(PUBLISHED_BOOKS_FILE, 'utf-8');
+    return JSON.parse(data);
+  } catch (err) {
+    return {};
+  }
+}
+
+function writePublishedBooks(publishedBooks) {
+  fs.writeFileSync(PUBLISHED_BOOKS_FILE, JSON.stringify(publishedBooks, null, 2));
+}
+
+function ensureAuthorPublishedBooks(publishedBooks, username) {
+  if (!publishedBooks[username] || typeof publishedBooks[username] !== 'object') {
+    publishedBooks[username] = {};
+  }
+  return publishedBooks[username];
 }
 
 // Ignore already taken care
@@ -567,6 +592,21 @@ app.post('/api/publish',
     pendingBooks.push(newBook);
     writePendingBooks(pendingBooks);
 
+    // Also add to publishedBooks.json with "pending" status
+    const publishedBooks = readPublishedBooks();
+    const authorBooks = ensureAuthorPublishedBooks(publishedBooks, authorUsername);
+    authorBooks[newBook.id] = {
+      id: newBook.id,
+      title,
+      genre,
+      description,
+      status: 'pending',
+      filePath: relativePdfPath,
+      coverPath: relativeCoverPath,
+      publishDate: newBook.publishDate,
+    };
+    writePublishedBooks(publishedBooks);
+
     addNotificationForRole(
       'librarian',
       'newSubmissions',
@@ -800,6 +840,15 @@ app.post('/api/submissions/:id', (req, res) => {
       book.approved = true;
       books.push(book);
       writeBooks(books);
+      
+      // Update publishedBooks.json status to "approved"
+      const publishedBooks = readPublishedBooks();
+      const authorBooks = ensureAuthorPublishedBooks(publishedBooks, book.authorUsername);
+      if (authorBooks[book.id]) {
+        authorBooks[book.id].status = 'approved';
+      }
+      writePublishedBooks(publishedBooks);
+      
       addNotificationForUser(book.authorUsername, 'bookUpdates', `Book approved: "${book.title}" has been approved and published.`);
       console.log(`Book approved and added to books.json.`);
     } else {
@@ -810,6 +859,16 @@ app.post('/api/submissions/:id', (req, res) => {
       book.status = 'rejected';
       book.rejectionReason = rejectionReason;
       addRejectionReason(book.authorUsername, book.title, rejectionReason, !sendToAuthor);
+      
+      // Update publishedBooks.json status to "rejected"
+      const publishedBooks = readPublishedBooks();
+      const authorBooks = ensureAuthorPublishedBooks(publishedBooks, book.authorUsername);
+      if (authorBooks[book.id]) {
+        authorBooks[book.id].status = 'rejected';
+        authorBooks[book.id].rejectionReason = rejectionReason;
+      }
+      writePublishedBooks(publishedBooks);
+      
       addNotificationForUser(book.authorUsername, 'bookUpdates', `Book rejected: "${book.title}" was rejected. Reason: ${rejectionReason}`);
       removePendingBookAssets(book);
       console.log(`Book rejected with reason: ${rejectionReason}`);
@@ -824,6 +883,70 @@ app.post('/api/submissions/:id', (req, res) => {
   } catch (err) {
     console.error('Error updating submission:', err);
     res.status(500).json({ error: 'Failed to update submission.' });
+  }
+});
+
+// Published Books endpoints
+
+// GET /api/published-books/:username - Fetch all published books for an author
+app.get('/api/published-books/:username', (req, res) => {
+  try {
+    const { username } = req.params;
+    const publishedBooks = readPublishedBooks();
+    const authorBooks = publishedBooks[username] || {};
+    
+    // Convert to array format for easier frontend processing
+    const booksArray = Object.values(authorBooks);
+    res.json(booksArray);
+  } catch (err) {
+    console.error('Error fetching published books:', err);
+    res.status(500).json({ error: 'Failed to fetch published books.' });
+  }
+});
+
+// PATCH /api/published-books/:username/:bookId - Update book details (title, genre, description)
+app.patch('/api/published-books/:username/:bookId', (req, res) => {
+  try {
+    const { username, bookId } = req.params;
+    const { title, genre, description } = req.body;
+    
+    const publishedBooks = readPublishedBooks();
+    const authorBooks = ensureAuthorPublishedBooks(publishedBooks, username);
+    
+    if (!authorBooks[bookId]) {
+      return res.status(404).json({ error: 'Book not found.' });
+    }
+    
+    // Update allowed fields
+    if (title !== undefined) authorBooks[bookId].title = title;
+    if (genre !== undefined) authorBooks[bookId].genre = genre;
+    if (description !== undefined) authorBooks[bookId].description = description;
+    
+    writePublishedBooks(publishedBooks);
+    res.json({ message: 'Book updated successfully.', book: authorBooks[bookId] });
+  } catch (err) {
+    console.error('Error updating published book:', err);
+    res.status(500).json({ error: 'Failed to update published book.' });
+  }
+});
+
+// DELETE /api/published-books/:username/:bookId - Delete a published book
+app.delete('/api/published-books/:username/:bookId', (req, res) => {
+  try {
+    const { username, bookId } = req.params;
+    const publishedBooks = readPublishedBooks();
+    const authorBooks = ensureAuthorPublishedBooks(publishedBooks, username);
+    
+    if (!authorBooks[bookId]) {
+      return res.status(404).json({ error: 'Book not found.' });
+    }
+    
+    delete authorBooks[bookId];
+    writePublishedBooks(publishedBooks);
+    res.json({ message: 'Book deleted successfully.' });
+  } catch (err) {
+    console.error('Error deleting published book:', err);
+    res.status(500).json({ error: 'Failed to delete published book.' });
   }
 });
 

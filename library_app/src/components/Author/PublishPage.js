@@ -3,7 +3,7 @@ import ConfirmSubmitPage from './ConfirmSubmitPage';
 
 const GENRES = ['Fiction', 'Non-Fiction', 'Science', 'History'];
 
-const PublishPage = ({ currentUser }) => {
+const PublishPage = ({ currentUser, onBookPublished }) => {
   const [form, setForm] = useState({
     title: '',
     authorUsername: currentUser?.username || '',
@@ -157,6 +157,10 @@ const PublishPage = ({ currentUser }) => {
         setShowConfirmPage(false);
         // Clear saved draft after successful submission
         localStorage.removeItem(`publishDraft_${currentUser?.username}`);
+        // Notify parent to refresh published books list
+        if (onBookPublished) {
+          onBookPublished();
+        }
       } else {
         setMessage('Submission failed.');
         setMessageType('error');

@@ -1,9 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import PublishPage from './PublishPage';
 import ManageProfileScreen from '../ManageProfileScreen';
 import NotificationBoard from '../NotificationBoard';
+import PublishedBooksScreen from './PublishedBooksScreen';
 
 const AuthorPortal = ({ currentUser, onLogout, onProfileUpdated }) => {
+  const [publishRefreshKey, setPublishRefreshKey] = useState(0);
+
+  const handleBookPublished = () => {
+    // Increment the refresh key to trigger a refetch in PublishedBooksScreen
+    setPublishRefreshKey(prev => prev + 1);
+  };
+
   return (
     <div className="portal">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -12,7 +20,8 @@ const AuthorPortal = ({ currentUser, onLogout, onProfileUpdated }) => {
       </div>
       <p>Welcome, {currentUser.username}! This is your dashboard.</p>
       <NotificationBoard currentUser={currentUser} />
-      <PublishPage currentUser={currentUser} />
+      <PublishedBooksScreen currentUser={currentUser} refreshKey={publishRefreshKey} />
+      <PublishPage currentUser={currentUser} onBookPublished={handleBookPublished} />
       <ManageProfileScreen
         currentUser={currentUser}
         onProfileUpdated={onProfileUpdated}
