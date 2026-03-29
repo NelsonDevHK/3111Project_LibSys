@@ -1,0 +1,44 @@
+{
+  "author1": {
+    "bookUpdates": [
+      {
+        "id": "6223b1b9-5306-4da1-8088-b5b16e4e9aae",
+        "category": "bookUpdates",
+        "message": "Book rejected: \"title\" was rejected. Reason: rejection1",
+        "timestamp": "2026-03-29T16:51:07.971Z",
+        "unread": false,
+        "archived": true
+      }
+    ],
+    "newSubmissions": [],
+    "accountUpdates": [],
+    "dueReminders": [],
+    "bookDeletionNotices": [],
+    "other": []
+  },
+  "librarian1": {
+    "bookUpdates": [],
+    "newSubmissions": [],
+    "accountUpdates": [
+      {
+        "id": "a49ef92a-3b8b-4353-88b2-d47f115a4d19",
+        "category": "accountUpdates",
+        "message": "User account updated: author1 (author). Changed: Password.",
+        "timestamp": "2026-03-29T16:43:41.584Z",
+        "unread": false,
+        "archived": false
+      },
+      {
+        "id": "f4e69ff5-7cb8-4ba6-8f45-016254221154",
+        "category": "accountUpdates",
+        "message": "User account updated: author1 (author). Changed: Bio.",
+        "timestamp": "2026-03-29T16:43:00.961Z",
+        "unread": false,
+        "archived": false
+      }
+    ],
+    "dueReminders": [],
+    "bookDeletionNotices": [],
+    "other": []
+  }
+}
