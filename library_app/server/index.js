@@ -9,6 +9,7 @@ const { randomUUID } = require('crypto');
 const USERS_FILE = path.join(__dirname, 'users.json');
 const BOOKS_FILE = path.join(__dirname, 'books.json');
 const REJECTION_REASONS_FILE = path.join(__dirname, 'rejectionReason.json');
+const NOTIFICATIONS_FILE = path.join(__dirname, 'notifications.json');
 
 // Ignore already taken care
 const app = express();
@@ -31,6 +32,148 @@ function validatePassword(password) {
   const hasNumber = /[0-9]/.test(password);
   return password.length >= minLength && hasLetter && hasNumber;
 }
+
+// Notification helpers
+
+function createNotificationBuckets() {
+  return {
+    bookUpdates: [],
+    newSubmissions: [],
+    accountUpdates: [],
+    dueReminders: [],
+    bookDeletionNotices: [],
+    other: [],
+  };
+}
+
+function readNotifications() {
+  if (!fs.existsSync(NOTIFICATIONS_FILE)) {
+    return {};
+  }
+
+  try {
+    const raw = fs.readFileSync(NOTIFICATIONS_FILE, 'utf-8');
+    return raw ? JSON.parse(raw) : {};
+  } catch (err) {
+    console.error('Error reading notifications.json:', err);
+    return {};
+  }
+}
+
+function writeNotifications(notifications) {
+  fs.writeFileSync(NOTIFICATIONS_FILE, JSON.stringify(notifications, null, 2));
+}
+
+function ensureUserNotifications(notifications, username) {
+  if (!notifications[username] || typeof notifications[username] !== 'object') {
+    notifications[username] = createNotificationBuckets();
+  }
+
+  const buckets = notifications[username];
+  const defaults = createNotificationBuckets();
+  Object.keys(defaults).forEach((category) => {
+    if (!Array.isArray(buckets[category])) {
+      buckets[category] = [];
+    }
+  });
+
+  // Migrate legacy rejectionReasons array into bookUpdates notifications.
+  if (Array.isArray(buckets.rejectionReasons) && buckets.bookUpdates.length === 0) {
+    buckets.bookUpdates = buckets.rejectionReasons.map((entry) => {
+      const bookTitle = entry?.bookTitle || 'Untitled Book';
+      const reason = entry?.rejectionReason || 'No reason provided.';
+      return {
+        id: entry?.id || randomUUID(),
+        category: 'bookUpdates',
+        message: `Book rejected: "${bookTitle}". Reason: ${reason}`,
+        timestamp: entry?.timestamp || new Date().toISOString(),
+        unread: typeof entry?.unread === 'boolean' ? entry.unread : true,
+        archived: Boolean(entry?.hidden),
+      };
+    });
+    delete buckets.rejectionReasons;
+  }
+
+  // Migrate legacy announcement strings into structured notifications.
+  if (Array.isArray(buckets.other)) {
+    buckets.other = buckets.other.map((entry) => {
+      if (typeof entry === 'string') {
+        return {
+          id: randomUUID(),
+          category: 'other',
+          message: entry,
+          timestamp: new Date().toISOString(),
+          unread: true,
+          archived: false,
+        };
+      }
+
+      return {
+        id: entry?.id || randomUUID(),
+        category: 'other',
+        message: entry?.message || '',
+        timestamp: entry?.timestamp || new Date().toISOString(),
+        unread: typeof entry?.unread === 'boolean' ? entry.unread : true,
+        archived: typeof entry?.archived === 'boolean' ? entry.archived : false,
+      };
+    });
+  }
+
+  return buckets;
+}
+
+function createNotification(message, category) {
+  return {
+    id: randomUUID(),
+    category,
+    message,
+    timestamp: new Date().toISOString(),
+    unread: true,
+    archived: false,
+  };
+}
+
+function addNotificationForUser(username, category, message) {
+  const notifications = readNotifications();
+  const buckets = ensureUserNotifications(notifications, username);
+  if (!Array.isArray(buckets[category])) {
+    buckets[category] = [];
+  }
+
+  buckets[category].unshift(createNotification(message, category));
+  writeNotifications(notifications);
+}
+
+function addNotificationForRole(role, category, message) {
+  const users = readUsers().filter((user) => user.role === role);
+  if (users.length === 0) return;
+
+  const notifications = readNotifications();
+  users.forEach((user) => {
+    const buckets = ensureUserNotifications(notifications, user.username);
+    if (!Array.isArray(buckets[category])) {
+      buckets[category] = [];
+    }
+    buckets[category].unshift(createNotification(message, category));
+  });
+
+  writeNotifications(notifications);
+}
+
+function categoriesForRole(role) {
+  if (role === 'author') {
+    return ['bookUpdates', 'other'];
+  }
+  if (role === 'librarian') {
+    return ['newSubmissions', 'accountUpdates', 'other'];
+  }
+  if (role === 'student' || role === 'staff') {
+    return ['dueReminders', 'bookDeletionNotices', 'other'];
+  }
+  return ['other'];
+}
+
+// Notifications helpers end
 
 // Book helpers
 function readBooks() {
@@ -56,6 +199,12 @@ app.post('/api/register', (req, res) => {
   if (role === 'librarian' && employeeId) newUser.employeeId = employeeId;
   users.push(newUser);
   writeUsers(users);
+
+  const notifications = readNotifications();
+  ensureUserNotifications(notifications, username);
+  writeNotifications(notifications);
+
+  addNotificationForRole('librarian', 'accountUpdates', `New user account created: ${username} (${role}).`);
   res.json({ message: 'Registration successful!' });
 });
 
@@ -137,6 +286,18 @@ app.post('/api/profile/update', (req, res) => {
   users[userIndex] = user;
   writeUsers(users);
 
+  const changedFields = [];
+  if (hasFullNameChange) changedFields.push('Full Name');
+  if (hasPasswordChange) changedFields.push('Password');
+  if (hasEmployeeIdChange) changedFields.push('Employee ID');
+  if (hasBioChange) changedFields.push('Bio');
+
+  addNotificationForRole(
+    'librarian',
+    'accountUpdates',
+    `User account updated: ${username} (${role}). Changed: ${changedFields.join(', ')}.`
+  );
+
   res.json({
     message: 'Profile updated successfully.',
     passwordChanged: hasPasswordChange,
@@ -155,15 +316,59 @@ app.get('/api/books', (req, res) => {
 });
 
 app.post('/api/borrow', (req, res) => {
-  const { bookId } = req.body;
+  const { bookId, username, durationDays } = req.body;
   if (!bookId) return res.status(400).json({ error: 'Missing bookId.' });
+
   const books = readBooks();
-  const book = books.find(b => b.id === bookId);
+  const numericBookId = Number(bookId);
+  const book = books.find((b) => b.id === numericBookId || b.id === bookId);
   if (!book) return res.status(404).json({ error: 'Book not found.' });
   if (book.status !== 'available') return res.status(409).json({ error: 'Book is not available.' });
+
+  const borrowDays = Number.isFinite(Number(durationDays))
+    ? Math.max(1, Math.floor(Number(durationDays)))
+    : 10;
+
+  const dueAt = new Date();
+  dueAt.setDate(dueAt.getDate() + borrowDays);
+
   book.status = 'borrowed';
+  if (username) {
+    book.borrowedBy = username;
+  }
+  book.borrowedAt = new Date().toISOString();
+  book.dueDate = dueAt.toISOString().split('T')[0];
+
   writeBooks(books);
+  if (username) {
+    addNotificationForUser(username, 'dueReminders', `Due reminder: "${book.title}" is due on ${book.dueDate}.`);
+  }
+
   res.json({ message: 'Book borrowed successfully!', book });
+});
+
+app.delete('/api/books/:id', (req, res) => {
+  const { id } = req.params;
+  const books = readBooks();
+  const numericBookId = Number(id);
+
+  const bookIndex = books.findIndex((book) => book.id === numericBookId || String(book.id) === id);
+  if (bookIndex === -1) {
+    return res.status(404).json({ error: 'Book not found.' });
+  }
+
+  const [removedBook] = books.splice(bookIndex, 1);
+  writeBooks(books);
+
+  if (removedBook.borrowedBy) {
+    addNotificationForUser(
+      removedBook.borrowedBy,
+      'bookDeletionNotices',
+      `Book deletion notice: "${removedBook.title}" was deleted while it was borrowed.`
+    );
+  }
+
+  res.json({ message: 'Book deleted successfully.' });
 });
 
 // Author helper to handle book publishing with file upload
@@ -362,6 +567,12 @@ app.post('/api/publish',
     pendingBooks.push(newBook);
     writePendingBooks(pendingBooks);
 
+    addNotificationForRole(
+      'librarian',
+      'newSubmissions',
+      `New submission: "${title}" by ${authorUsername}.`
+    );
+
     res.status(200).json({ message: 'Book submitted' });
   } catch (err) {
     console.error('publish error:', err);
@@ -480,6 +691,87 @@ app.delete('/api/rejectionReason/:authorUsername/:reasonId', (req, res) => {
   }
 });
 
+app.get('/api/notifications/:username', (req, res) => {
+  const { username } = req.params;
+  const { role } = req.query;
+
+  if (!username || !role) {
+    return res.status(400).json({ error: 'username and role are required.' });
+  }
+
+  const notifications = readNotifications();
+  const buckets = ensureUserNotifications(notifications, username);
+  writeNotifications(notifications);
+
+  const visibleCategories = categoriesForRole(role);
+  const categories = {};
+
+  visibleCategories.forEach((category) => {
+    categories[category] = Array.isArray(buckets[category]) ? buckets[category] : [];
+  });
+
+  const unreadCount = Object.values(categories)
+    .flat()
+    .filter((item) => item && item.unread && !item.archived)
+    .length;
+
+  res.json({ categories, unreadCount, visibleCategories });
+});
+
+app.patch('/api/notifications/:username/:category/:notificationId', (req, res) => {
+  const { username, category, notificationId } = req.params;
+  const { action } = req.body;
+
+  if (!['read', 'archive', 'unarchive'].includes(action)) {
+    return res.status(400).json({ error: 'Invalid action.' });
+  }
+
+  const notifications = readNotifications();
+  const buckets = ensureUserNotifications(notifications, username);
+  const categoryItems = buckets[category];
+
+  if (!Array.isArray(categoryItems)) {
+    return res.status(404).json({ error: 'Notification category not found.' });
+  }
+
+  const item = categoryItems.find((entry) => entry.id === notificationId);
+  if (!item) {
+    return res.status(404).json({ error: 'Notification not found.' });
+  }
+
+  if (action === 'read') {
+    item.unread = false;
+  } else if (action === 'archive') {
+    item.archived = true;
+    item.unread = false;
+  } else if (action === 'unarchive') {
+    item.archived = false;
+  }
+
+  writeNotifications(notifications);
+  res.json({ message: 'Notification updated.' });
+});
+
+app.delete('/api/notifications/:username/:category/:notificationId', (req, res) => {
+  const { username, category, notificationId } = req.params;
+  const notifications = readNotifications();
+  const buckets = ensureUserNotifications(notifications, username);
+  const categoryItems = buckets[category];
+
+  if (!Array.isArray(categoryItems)) {
+    return res.status(404).json({ error: 'Notification category not found.' });
+  }
+
+  const index = categoryItems.findIndex((entry) => entry.id === notificationId);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Notification not found.' });
+  }
+
+  categoryItems.splice(index, 1);
+  writeNotifications(notifications);
+  res.json({ message: 'Notification deleted.' });
+});
+
 // Endpoint to approve or reject a book submission
 app.post('/api/submissions/:id', (req, res) => {
   const { id } = req.params;
@@ -508,6 +800,7 @@ app.post('/api/submissions/:id', (req, res) => {
       book.approved = true;
       books.push(book);
       writeBooks(books);
+      addNotificationForUser(book.authorUsername, 'bookUpdates', `Book approved: "${book.title}" has been approved and published.`);
       console.log(`Book approved and added to books.json.`);
     } else {
       if (!rejectionReason || !rejectionReason.trim()) {
@@ -517,6 +810,7 @@ app.post('/api/submissions/:id', (req, res) => {
       book.status = 'rejected';
       book.rejectionReason = rejectionReason;
       addRejectionReason(book.authorUsername, book.title, rejectionReason, !sendToAuthor);
+      addNotificationForUser(book.authorUsername, 'bookUpdates', `Book rejected: "${book.title}" was rejected. Reason: ${rejectionReason}`);
       removePendingBookAssets(book);
       console.log(`Book rejected with reason: ${rejectionReason}`);
     }

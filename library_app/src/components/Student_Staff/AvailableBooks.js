@@ -51,7 +51,7 @@ function AvailableBooks({ onBorrow }) {
     }
     let successCount = 0;
     for (const bookId of selected) {
-      await onBorrow(bookId);
+      await onBorrow(bookId, duration);
       successCount++;
     }
     fetchBooks();
@@ -66,7 +66,7 @@ function AvailableBooks({ onBorrow }) {
       setBorrowMessage('Borrow duration must be between 10 and 14 days.');
       return;
     }
-    await onBorrow(bookId);
+    await onBorrow(bookId, duration);
     fetchBooks();
   };
 

@@ -107,9 +107,13 @@ function LoginRegister() {
   };
 
   const onLogout = (logoutMessage = 'You have been logged out.') => {
+    const safeMessage = typeof logoutMessage === 'string'
+      ? logoutMessage
+      : 'You have been logged out.';
+
     setPortalRole(null);
     setCurrentUser(null);
-    setMessage(logoutMessage);
+    setMessage(safeMessage);
     setMessageType('info');
   };
 

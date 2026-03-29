@@ -1,15 +1,17 @@
 import React from 'react';
 import NewBookSubmissions from './NewBookSubmissions';
 import ManageProfileScreen from '../ManageProfileScreen';
+import NotificationBoard from '../NotificationBoard';
 
 function LibrarianPortal({ currentUser, onLogout, onProfileUpdated }) {
   return (
     <div className="portal">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>Librarian Portal</h2>
-        <button onClick={onLogout} style={{ height: '100%', backgroundColor: '#ffb86c' }}>Log Out</button>
+        <button onClick={() => onLogout()} style={{ height: '100%', backgroundColor: '#ffb86c' }}>Log Out</button>
       </div>
       <p>Welcome, {currentUser ? currentUser.username : 'Librarian'}! This is your dashboard.</p>
+      <NotificationBoard currentUser={currentUser} />
       <NewBookSubmissions />
       <ManageProfileScreen
         currentUser={currentUser}
