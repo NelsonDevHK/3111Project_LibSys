@@ -120,11 +120,43 @@ function ensureUserNotifications(notifications, username) {
     });
   }
 
+  if (Array.isArray(buckets.bookUpdates)) {
+    buckets.bookUpdates = buckets.bookUpdates.map((entry) => {
+      const normalizedEntry = entry && typeof entry === 'object' ? { ...entry } : {
+        id: randomUUID(),
+        category: 'bookUpdates',
+        message: '',
+        timestamp: new Date().toISOString(),
+        unread: true,
+        archived: false,
+      };
+
+      const reasonMatch = (normalizedEntry.message || '').match(/\. Reason:\s*(.*)$/);
+      const extractedReason = reasonMatch ? reasonMatch[1] : '';
+
+      if (reasonMatch) {
+        normalizedEntry.message = (normalizedEntry.message || '').replace(/\. Reason:\s*.*$/, '.');
+      }
+
+      normalizedEntry.showRejectionReasonToAuthor =
+        typeof normalizedEntry.showRejectionReasonToAuthor === 'boolean'
+          ? normalizedEntry.showRejectionReasonToAuthor
+          : Boolean(extractedReason);
+
+      normalizedEntry.rejectionReason =
+        typeof normalizedEntry.rejectionReason === 'string'
+          ? normalizedEntry.rejectionReason
+          : extractedReason;
+
+      return normalizedEntry;
+    });
+  }
+
   return buckets;
 }
 
-function createNotification(message, category) {
-  return {
+function createNotification(message, category, metadata = {}) {
+  const base = {
     id: randomUUID(),
     category,
     message,
@@ -132,20 +164,34 @@ function createNotification(message, category) {
     unread: true,
     archived: false,
   };
+
+  if (category === 'bookUpdates') {
+    return {
+      ...base,
+      showRejectionReasonToAuthor:
+        typeof metadata.showRejectionReasonToAuthor === 'boolean'
+          ? metadata.showRejectionReasonToAuthor
+          : false,
+      rejectionReason:
+        typeof metadata.rejectionReason === 'string' ? metadata.rejectionReason : '',
+    };
+  }
+
+  return base;
 }
 
-function addNotificationForUser(username, category, message) {
+function addNotificationForUser(username, category, message, metadata = {}) {
   const notifications = readNotifications();
   const buckets = ensureUserNotifications(notifications, username);
   if (!Array.isArray(buckets[category])) {
     buckets[category] = [];
   }
 
-  buckets[category].unshift(createNotification(message, category));
+  buckets[category].unshift(createNotification(message, category, metadata));
   writeNotifications(notifications);
 }
 
-function addNotificationForRole(role, category, message) {
+function addNotificationForRole(role, category, message, metadata = {}) {
   const users = readUsers().filter((user) => user.role === role);
   if (users.length === 0) return;
 
@@ -155,7 +201,7 @@ function addNotificationForRole(role, category, message) {
     if (!Array.isArray(buckets[category])) {
       buckets[category] = [];
     }
-    buckets[category].unshift(createNotification(message, category));
+    buckets[category].unshift(createNotification(message, category, metadata));
   });
 
   writeNotifications(notifications);
@@ -852,7 +898,10 @@ app.post('/api/submissions/:id', (req, res) => {
       }
       writePublishedBooks(publishedBooks);
       
-      addNotificationForUser(book.authorUsername, 'bookUpdates', `Book approved: "${book.title}" has been approved and published.`);
+      addNotificationForUser(book.authorUsername, 'bookUpdates', `Book approved: "${book.title}" has been approved and published.`, {
+        showRejectionReasonToAuthor: false,
+        rejectionReason: '',
+      });
       console.log(`Book approved and added to books.json.`);
     } else {
       if (!rejectionReason || !rejectionReason.trim()) {
@@ -872,7 +921,10 @@ app.post('/api/submissions/:id', (req, res) => {
       }
       writePublishedBooks(publishedBooks);
       
-      addNotificationForUser(book.authorUsername, 'bookUpdates', `Book rejected: "${book.title}" was rejected. Reason: ${rejectionReason}`);
+      addNotificationForUser(book.authorUsername, 'bookUpdates', `Book rejected: "${book.title}" was rejected.`, {
+        showRejectionReasonToAuthor: Boolean(sendToAuthor),
+        rejectionReason: rejectionReason.trim(),
+      });
       console.log(`Book rejected with reason: ${rejectionReason}`);
     }
 

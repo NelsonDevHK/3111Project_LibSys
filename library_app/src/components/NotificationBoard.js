@@ -95,6 +95,13 @@ function NotificationBoard({ currentUser }) {
 		}
 	};
 
+	const renderMessage = (item) => {
+		const baseMessage = item.message || '';
+		if (!item.rejectionReason) return baseMessage;
+		if (!item.showRejectionReasonToAuthor) return baseMessage;
+		return `${baseMessage} Reason: ${item.rejectionReason}`;
+	};
+
 	return (
 		<section className="notification-board">
 			<div className="notification-board-header">
@@ -131,7 +138,7 @@ function NotificationBoard({ currentUser }) {
 				const items = (categories[category] || [])
 					.filter((item) => {
 						if (!normalizedSearch) return true;
-						return (item.message || '').toLowerCase().includes(normalizedSearch);
+						return renderMessage(item).toLowerCase().includes(normalizedSearch);
 					})
 					.sort((a, b) => {
 						const aTime = new Date(a.timestamp || 0).getTime();
@@ -155,7 +162,7 @@ function NotificationBoard({ currentUser }) {
 							{activeItems.map((item) => (
 								<div key={item.id} className={`notification-item ${item.unread ? 'unread' : 'read'}`}>
 									<div className="notification-item-copy">
-										<p>{item.message}</p>
+										<p>{renderMessage(item)}</p>
 										<p className="notification-time">{new Date(item.timestamp).toLocaleString()}</p>
 									</div>
 									<div className="notification-actions">
@@ -188,7 +195,7 @@ function NotificationBoard({ currentUser }) {
 									{archivedItems.map((item) => (
 										<div key={item.id} className={`notification-item ${item.unread ? 'unread' : 'read'}`}>
 											<div className="notification-item-copy">
-												<p>{item.message}</p>
+												<p>{renderMessage(item)}</p>
 												<p className="notification-time">{new Date(item.timestamp).toLocaleString()}</p>
 											</div>
 											<div className="notification-actions">
@@ -220,7 +227,7 @@ function NotificationBoard({ currentUser }) {
 				const items = (categories[category] || [])
 					.filter((item) => {
 						if (!normalizedSearch) return true;
-						return (item.message || '').toLowerCase().includes(normalizedSearch);
+						return renderMessage(item).toLowerCase().includes(normalizedSearch);
 					});
 				const activeItems = items.filter((item) => !item.archived);
 				const archivedItems = items.filter((item) => item.archived);

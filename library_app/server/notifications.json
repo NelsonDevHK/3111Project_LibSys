@@ -2,25 +2,11 @@
   "author1": {
     "bookUpdates": [
       {
-        "id": "e1e409b6-5d18-499d-916f-fce0e07ac98b",
-        "category": "bookUpdates",
-        "message": "Book rejected: \"1\" was rejected. Reason: a",
-        "timestamp": "2026-03-29T17:54:50.280Z",
-        "unread": true,
-        "archived": false
-      },
-      {
-        "id": "351e6dc0-4293-4954-975c-7498bd54f3cb",
-        "category": "bookUpdates",
-        "message": "Book rejected: \"1\" was rejected. Reason: a",
-        "timestamp": "2026-03-29T17:50:20.553Z",
-        "unread": true,
-        "archived": false
-      },
-      {
         "id": "6223b1b9-5306-4da1-8088-b5b16e4e9aae",
         "category": "bookUpdates",
-        "message": "Book rejected: \"title\" was rejected. Reason: rejection1",
+        "message": "Book rejected: \"title\" was rejected.",
+        "showRejectionReasonToAuthor": true,
+        "rejectionReason": "rejection1",
         "timestamp": "2026-03-29T16:51:07.971Z",
         "unread": false,
         "archived": true
@@ -35,6 +21,22 @@
   "librarian1": {
     "bookUpdates": [],
     "newSubmissions": [
+      {
+        "id": "a8afda64-959b-476f-9d29-8e0c3ad13f7b",
+        "category": "newSubmissions",
+        "message": "New submission: \"3\" by author1.",
+        "timestamp": "2026-03-29T18:09:42.723Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "3f87beb4-bcc3-4921-b116-2efef31054f8",
+        "category": "newSubmissions",
+        "message": "New submission: \"2\" by author1.",
+        "timestamp": "2026-03-29T18:08:27.034Z",
+        "unread": true,
+        "archived": false
+      },
       {
         "id": "d5493c87-a4c3-496c-9d53-c626cb181f36",
         "category": "newSubmissions",
