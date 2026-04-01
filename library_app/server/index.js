@@ -1371,6 +1371,51 @@ app.delete('/api/published-books/:username/:bookId', (req, res) => {
 // End of Author helper
 
 
+// Add endpoints for user management
+
+// Fetch all users
+app.get('/users', (req, res) => {
+  try {
+    const users = readUsers();
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Update user details
+app.put('/users/:id', (req, res) => {
+  const users = require('./users.json');
+  const userId = req.params.id;
+  const updatedUser = req.body;
+
+  const userIndex = users.findIndex((user) => user.id === userId);
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  users[userIndex] = { ...users[userIndex], ...updatedUser };
+  fs.writeFileSync('./users.json', JSON.stringify(users, null, 2));
+  res.json(users[userIndex]);
+});
+
+// Change user status
+app.patch('/users/:id/status', (req, res) => {
+  const users = require('./users.json');
+  const userId = req.params.id;
+  const { status } = req.body;
+
+  const userIndex = users.findIndex((user) => user.id === userId);
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  users[userIndex].status = status;
+  fs.writeFileSync('./users.json', JSON.stringify(users, null, 2));
+  res.json(users[userIndex]);
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

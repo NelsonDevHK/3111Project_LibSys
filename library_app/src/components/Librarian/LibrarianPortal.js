@@ -2,6 +2,8 @@ import React from 'react';
 import NewBookSubmissions from './NewBookSubmissions';
 import ManageProfileScreen from '../ManageProfileScreen';
 import NotificationBoard from '../NotificationBoard';
+import ManageUsers from './ManageUsers';
+import BorrowedBooksRecord from './BorrowedBooksRecord';
 
 function LibrarianPortal({ currentUser, onLogout, onProfileUpdated }) {
   return (
@@ -18,6 +20,8 @@ function LibrarianPortal({ currentUser, onLogout, onProfileUpdated }) {
         onProfileUpdated={onProfileUpdated}
         onForceLogout={onLogout}
       />
+      <ManageUsers />
+      <BorrowedBooksRecord />
     </div>
   );
 }

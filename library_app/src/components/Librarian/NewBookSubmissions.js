@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 
 function NewBookSubmissions() {
   const [submissions, setSubmissions] = useState([]);
-  const [feedbackMessage, setFeedbackMessage] = useState('');
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [selectedSubmissionId, setSelectedSubmissionId] = useState(null);
-  const [sendToAuthor, setSendToAuthor] = useState(false);
+  const [selectedSubmissions, setSelectedSubmissions] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
 
   const fetchSubmissions = async () => {
     try {
@@ -13,47 +12,60 @@ function NewBookSubmissions() {
       const data = await res.json();
       setSubmissions(data);
     } catch {
-      setFeedbackMessage('Failed to fetch submissions.');
+      console.error('Failed to fetch submissions.');
     }
   };
 
-  const handleApproval = async (submissionId, isApproved, rejectionReason = '', sendToAuthor = false) => {
-    setFeedbackMessage('');
+  const handleBulkAction = async (isApproved) => {
+    if (selectedSubmissions.length === 0) {
+      alert("No submissions selected.");
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to ${isApproved ? 'approve' : 'reject'} the selected submissions?`)) {
+      return;
+    }
+
     try {
-      const res = await fetch(`http://localhost:4000/api/submissions/${submissionId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isApproved, rejectionReason, sendToAuthor })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setFeedbackMessage(`Submission ${isApproved ? 'approved' : 'rejected'} successfully.`);
-        fetchSubmissions();
-      } else {
-        setFeedbackMessage(data.error || 'Failed to update submission.');
-      }
+      await Promise.all(
+        selectedSubmissions.map((id) =>
+          fetch(`http://localhost:4000/api/submissions/${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isApproved })
+          })
+        )
+      );
+      fetchSubmissions();
+      setSelectedSubmissions([]);
     } catch {
-      setFeedbackMessage('Server error.');
+      console.error('Failed to perform bulk action.');
     }
   };
 
-  const confirmAction = (submissionId, isApproved) => {
-    if (!isApproved) {
-      setSelectedSubmissionId(submissionId);
-    } else {
-      handleApproval(submissionId, true);
-    }
+  const handleSearch = (event) => {
+    setSearchTerm(event.target.value);
   };
 
-  const submitRejection = () => {
-    if (selectedSubmissionId && rejectionReason.trim()) {
-      handleApproval(selectedSubmissionId, false, rejectionReason, sendToAuthor);
-      setRejectionReason('');
-      setSendToAuthor(false);
-      setSelectedSubmissionId(null);
-    } else {
-      setFeedbackMessage('Please provide a rejection reason.');
-    }
+  const handleFilterChange = (event) => {
+    setFilterStatus(event.target.value);
+  };
+
+  const filteredSubmissions = submissions.filter((submission) => {
+    const matchesSearch =
+      submission.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      submission.authorUsername.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus =
+      filterStatus === "all" || submission.status.toLowerCase() === filterStatus.toLowerCase();
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const toggleSelection = (id) => {
+    setSelectedSubmissions((prev) =>
+      prev.includes(id) ? prev.filter((submissionId) => submissionId !== id) : [...prev, id]
+    );
   };
 
   useEffect(() => {
@@ -62,64 +74,53 @@ function NewBookSubmissions() {
 
   return (
     <div className="submissions">
-      <h3 style={{ color: '#ffb86c' }}>New Book Submissions</h3>
+      <h3>New Book Submissions</h3>
+      <div className="filters">
+        <input
+          type="text"
+          placeholder="Search by title or author"
+          value={searchTerm}
+          onChange={handleSearch}
+        />
+        <select value={filterStatus} onChange={handleFilterChange}>
+          <option value="all">All</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+      <button onClick={() => handleBulkAction(true)}>Approve Selected</button>
+      <button onClick={() => handleBulkAction(false)}>Reject Selected</button>
       <table>
         <thead>
           <tr>
+            <th>Select</th>
             <th>Title</th>
-            <th>Author Username</th>
-            <th>Author Full Name</th>
+            <th>Author</th>
             <th>Genre</th>
             <th>Submitted Date</th>
             <th>Status</th>
-            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {submissions.length === 0 ? (
-            <tr>
-              <td colSpan="7">No submissions awaiting approval.</td>
+          {filteredSubmissions.map((submission) => (
+            <tr key={submission.id}>
+              <td>
+                <input
+                  type="checkbox"
+                  checked={selectedSubmissions.includes(submission.id)}
+                  onChange={() => toggleSelection(submission.id)}
+                />
+              </td>
+              <td>{submission.title}</td>
+              <td>{submission.authorUsername}</td>
+              <td>{submission.genre}</td>
+              <td>{submission.submittedDate}</td>
+              <td>{submission.status}</td>
             </tr>
-          ) : (
-            submissions.map((submission) => (
-              <tr key={submission.id}>
-                <td>{submission.title}</td>
-                <td>{submission.authorUsername}</td>
-                <td>{submission.authorFullName}</td>
-                <td>{submission.genre}</td>
-                <td>{submission.submittedDate}</td>
-                <td>{submission.status}</td>
-                <td>
-                  <button onClick={() => confirmAction(submission.id, true)}>Approve</button>
-                  <button onClick={() => confirmAction(submission.id, false)}>Reject</button>
-                </td>
-              </tr>
-            ))
-          )}
+          ))}
         </tbody>
       </table>
-      {selectedSubmissionId && (
-        <div className="rejection-box" style={{ marginTop: '20px' }}>
-          <h4 style={{ color: 'white' }}>Provide Rejection Reason</h4>
-          <textarea
-            value={rejectionReason}
-            onChange={(e) => setRejectionReason(e.target.value)}
-            placeholder="Enter rejection reason here..."
-            style={{ width: '300px', height: '150px', display: 'block', marginBottom: '10px' }}
-          />
-          <div style={{ marginBottom: '10px' }}>
-            <input
-              type="checkbox"
-              id="sendToAuthor"
-              checked={sendToAuthor}
-              onChange={(e) => setSendToAuthor(e.target.checked)}
-            />
-            <label htmlFor="sendToAuthor" style={{ marginLeft: '5px' }}>Send to Author</label>
-          </div>
-          <button onClick={submitRejection}>Submit Rejection</button>
-        </div>
-      )}
-      {feedbackMessage && <div className="feedback">{feedbackMessage}</div>}
     </div>
   );
 }
