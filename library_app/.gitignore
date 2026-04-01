@@ -23,5 +23,3 @@ yarn-debug.log*
 yarn-error.log*
 
 # local server data (do not commit)
-/server/*.json
-/server/bookAssets/

@@ -1,0 +1,30 @@
+{
+  "users": [
+    {
+      "username": "s1",
+      "fullName": "Student One",
+      "password": "1",
+      "role": "student"
+    },
+    {
+      "username": "staff1",
+      "fullName": "Staff One",
+      "password": "1",
+      "role": "staff"
+    },
+    {
+      "username": "author1",
+      "fullName": "Author One",
+      "password": "1",
+      "role": "author",
+      "bio": "Test author bio 2"
+    },
+    {
+      "username": "librarian1",
+      "fullName": "Librarian One",
+      "password": "1",
+      "role": "librarian",
+      "employeeId": "LIB001"
+    }
+  ]
+}

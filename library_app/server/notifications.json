@@ -1,63 +1,88 @@
 {
   "author1": {
-    "bookUpdates": [
-      {
-        "id": "6223b1b9-5306-4da1-8088-b5b16e4e9aae",
-        "category": "bookUpdates",
-        "message": "Book rejected: \"title\" was rejected.",
-        "showRejectionReasonToAuthor": true,
-        "rejectionReason": "rejection1",
-        "timestamp": "2026-03-29T16:51:07.971Z",
-        "unread": false,
-        "archived": true
-      }
-    ],
     "newSubmissions": [],
     "accountUpdates": [],
     "dueReminders": [],
     "bookDeletionNotices": [],
-    "other": []
+    "other": [],
+    "bookApprovalUpdates": [
+      {
+        "id": "0bc55ce9-1cbf-444f-b384-68d4df49b4db",
+        "category": "bookApprovalUpdates",
+        "message": "Book approved: \"New Book 1\" has been approved and published.",
+        "timestamp": "2026-04-01T16:53:12.350Z",
+        "unread": true,
+        "archived": false
+      }
+    ],
+    "bookRejectionUpdates": [
+      {
+        "id": "73e4ee64-ad9a-4001-a2fb-050bc184d400",
+        "category": "bookRejectionUpdates",
+        "message": "Book rejected: \"New Book 3\" was rejected.",
+        "timestamp": "2026-04-01T16:53:21.328Z",
+        "unread": false,
+        "archived": false,
+        "showRejectionReasonToAuthor": true,
+        "rejectionReason": "a"
+      },
+      {
+        "id": "b66638fa-4307-4ea0-b83f-06fe2d547ac8",
+        "category": "bookRejectionUpdates",
+        "message": "Book rejected: \"New Book 2\" was rejected.",
+        "timestamp": "2026-04-01T16:53:16.806Z",
+        "unread": true,
+        "archived": false,
+        "showRejectionReasonToAuthor": false,
+        "rejectionReason": "a"
+      }
+    ],
+    "bookUpdates": []
   },
   "librarian1": {
-    "bookUpdates": [],
     "newSubmissions": [
       {
-        "id": "a8afda64-959b-476f-9d29-8e0c3ad13f7b",
+        "id": "dca847bc-01c9-4a75-88fa-1c6f63fb2868",
         "category": "newSubmissions",
-        "message": "New submission: \"3\" by author1.",
-        "timestamp": "2026-03-29T18:09:42.723Z",
+        "message": "New submission: \"asdf\" by author1.",
+        "timestamp": "2026-04-01T17:17:00.982Z",
         "unread": true,
         "archived": false
       },
       {
-        "id": "3f87beb4-bcc3-4921-b116-2efef31054f8",
+        "id": "f17990d5-5efa-44a9-a30f-dcbe58a7da1e",
         "category": "newSubmissions",
-        "message": "New submission: \"2\" by author1.",
-        "timestamp": "2026-03-29T18:08:27.034Z",
-        "unread": true,
-        "archived": false
-      },
-      {
-        "id": "d5493c87-a4c3-496c-9d53-c626cb181f36",
-        "category": "newSubmissions",
-        "message": "New submission: \"1\" by author1.",
-        "timestamp": "2026-03-29T17:54:37.941Z",
+        "message": "New submission: \"Big file\" by author1.",
+        "timestamp": "2026-04-01T16:59:26.978Z",
         "unread": true,
         "archived": false
       }
     ],
-    "accountUpdates": [
-      {
-        "id": "f4e69ff5-7cb8-4ba6-8f45-016254221154",
-        "category": "accountUpdates",
-        "message": "User account updated: author1 (author). Changed: Bio.",
-        "timestamp": "2026-03-29T16:43:00.961Z",
-        "unread": false,
-        "archived": true
-      }
-    ],
+    "accountUpdates": [],
     "dueReminders": [],
     "bookDeletionNotices": [],
-    "other": []
+    "other": [],
+    "bookApprovalUpdates": [],
+    "bookRejectionUpdates": [],
+    "bookUpdates": []
+  },
+  "s1": {
+    "bookUpdates": [],
+    "newSubmissions": [],
+    "accountUpdates": [],
+    "dueReminders": [],
+    "bookDeletionNotices": [
+      {
+        "id": "db21b845-0d01-47f5-bb4c-f15c3a2db2a1",
+        "category": "bookDeletionNotices",
+        "message": "Book deletion notice: \"First Book\" was deleted while it was borrowed.",
+        "timestamp": "2026-04-01T16:39:59.741Z",
+        "unread": true,
+        "archived": false
+      }
+    ],
+    "other": [],
+    "bookApprovalUpdates": [],
+    "bookRejectionUpdates": []
   }
 }
