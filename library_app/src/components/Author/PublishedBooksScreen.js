@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 
 const GENRES = ['Fiction', 'Non-Fiction', 'Science', 'History'];
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
   const [books, setBooks] = useState([]);
@@ -10,8 +15,19 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
   const [editForm, setEditForm] = useState({ title: '', genre: [], description: '' });
   const [showEditModal, setShowEditModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [readerBook, setReaderBook] = useState(null);
+  const [readerPage, setReaderPage] = useState(1);
+  const [readerNumPages, setReaderNumPages] = useState(0);
 
-  const canEditBook = (book) => (book.status !== 'approved' || !book.borrowed) && book.status !== 'rejected';
+  const getEditBlockMessage = (book) => {
+    if (book.status === 'rejected') {
+      return 'The book has been rejected. Please submit another book for approval';
+    }
+    if (book.status === 'approved' && book.borrowed) {
+      return "The book is currently borrowed and can't be edited.";
+    }
+    return '';
+  };
 
   // Fetch published books
   const fetchPublishedBooks = useCallback(async () => {
@@ -39,8 +55,9 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
 
   // Handle edit button click
   const handleEditClick = (book) => {
-    if (!canEditBook(book)) {
-      setMessage('This published book is currently borrowed and cannot be edited right now.');
+    const blockedMessage = getEditBlockMessage(book);
+    if (blockedMessage) {
+      setMessage(blockedMessage);
       setMessageType('error');
       return;
     }
@@ -153,6 +170,19 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
     }
   };
 
+  const openReader = (book) => {
+    if (!book?.filePath) {
+      setMessage('This book does not have a readable file attached.');
+      setMessageType('error');
+      return;
+    }
+
+    setReaderBook(book);
+    setReaderPage(1);
+    setReaderNumPages(0);
+    setMessage('');
+  };
+
   // Get status text color
   const getStatusTextColor = (status) => {
     switch (status) {
@@ -205,30 +235,35 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
                 </td>
                 <td>{new Date(book.publishDate).toLocaleDateString()}</td>
                 <td>
-                  {book.status === 'approved' && book.borrowed && (
-                    <span style={{ color: '#ffb86c', marginRight: '8px', fontSize: '0.8rem' }}>
-                      Borrowed
-                    </span>
-                  )}
-                  {book.status === 'rejected' && (
-                    <span style={{ color: '#ff6188', marginRight: '8px', fontSize: '0.8rem' }}>
-                      Rejected
-                    </span>
-                  )}
                   <button
                     onClick={() => handleEditClick(book)}
-                    disabled={!canEditBook(book)}
                     style={{
                       marginRight: '8px',
-                      backgroundColor: canEditBook(book) ? '#6272a4' : '#555a70',
+                      backgroundColor: '#6272a4',
                       padding: '6px 12px',
                       fontSize: '0.85rem',
-                      opacity: canEditBook(book) ? 1 : 0.65,
-                      cursor: canEditBook(book) ? 'pointer' : 'not-allowed',
+                      cursor: 'pointer',
                     }}
-                    title={!canEditBook(book) ? 'Cannot edit while this published book is borrowed.' : 'Edit book details'}
+                    title='Edit book details'
                   >
                     Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openReader(book)}
+                    disabled={!book.filePath}
+                    style={{
+                      marginRight: '8px',
+                      backgroundColor: book.filePath ? '#4fd6b0' : '#555a70',
+                      color: book.filePath ? '#23232e' : '#f2f2f2',
+                      padding: '6px 12px',
+                      fontSize: '0.85rem',
+                      opacity: book.filePath ? 1 : 0.65,
+                      cursor: book.filePath ? 'pointer' : 'not-allowed',
+                    }}
+                    title={book.filePath ? 'Open book PDF' : 'No PDF available for this book'}
+                  >
+                    Read Book
                   </button>
                   <button
                     onClick={() => handleDeleteClick(book)}
@@ -322,6 +357,55 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
               >
                 Save Changes
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Read Book Modal */}
+      {readerBook && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ width: '90%', maxWidth: '900px' }}>
+            <h4 style={{ color: '#4fd6b0', marginTop: 0 }}>Reading: {readerBook.title}</h4>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setReaderPage((prev) => Math.max(1, prev - 1))}
+                disabled={readerPage <= 1}
+                style={{ padding: '6px 12px' }}
+              >
+                Prev Page
+              </button>
+              <span>
+                Page {readerPage} / {readerNumPages || '-'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setReaderPage((prev) => Math.min(readerNumPages || prev + 1, prev + 1))}
+                disabled={readerNumPages > 0 ? readerPage >= readerNumPages : false}
+                style={{ padding: '6px 12px' }}
+              >
+                Next Page
+              </button>
+              <button
+                type="button"
+                onClick={() => setReaderBook(null)}
+                style={{ marginLeft: 'auto', backgroundColor: '#6272a4', padding: '6px 12px' }}
+              >
+                Close Reader
+              </button>
+            </div>
+
+            <div style={{ maxHeight: '75vh', overflow: 'auto', border: '1px solid #3b3f54', borderRadius: '8px', padding: '8px' }}>
+              <Document
+                file={`http://localhost:4000/${readerBook.filePath}`}
+                onLoadSuccess={({ numPages }) => setReaderNumPages(numPages)}
+                onLoadError={() => setMessage('Failed to load PDF document.')}
+                loading="Loading PDF..."
+              >
+                <Page pageNumber={readerPage} width={820} renderTextLayer renderAnnotationLayer />
+              </Document>
             </div>
           </div>
         </div>
