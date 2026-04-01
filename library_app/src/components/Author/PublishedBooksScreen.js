@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
+const GENRES = ['Fiction', 'Non-Fiction', 'Science', 'History'];
+
 const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
   const [books, setBooks] = useState([]);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
   const [editingBook, setEditingBook] = useState(null);
-  const [editForm, setEditForm] = useState({ title: '', genre: '', description: '' });
+  const [editForm, setEditForm] = useState({ title: '', genre: [], description: '' });
   const [showEditModal, setShowEditModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  const canEditBook = (book) => (book.status !== 'approved' || !book.borrowed) && book.status !== 'rejected';
 
   // Fetch published books
   const fetchPublishedBooks = useCallback(async () => {
@@ -35,10 +39,19 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
 
   // Handle edit button click
   const handleEditClick = (book) => {
+    if (!canEditBook(book)) {
+      setMessage('This published book is currently borrowed and cannot be edited right now.');
+      setMessageType('error');
+      return;
+    }
+
     setEditingBook(book);
     setEditForm({
       title: book.title,
-      genre: book.genre,
+      genre: String(book.genre || '')
+        .split(',')
+        .map((g) => g.trim())
+        .filter(Boolean),
       description: book.description || '',
     });
     setShowEditModal(true);
@@ -47,14 +60,34 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
 
   // Handle edit form change
   const handleEditFormChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+
+    if (name === 'genre' && type === 'checkbox') {
+      setEditForm((prev) => {
+        const genres = new Set(prev.genre);
+        if (checked) {
+          genres.add(value);
+        } else {
+          genres.delete(value);
+        }
+        return { ...prev, genre: Array.from(genres) };
+      });
+      return;
+    }
+
+    setEditForm((prev) => ({ ...prev, [name]: value }));
   };
 
   // Handle edit form submit
   const handleEditSubmit = async () => {
-    if (!editForm.title.trim() || !editForm.genre.trim()) {
+    if (!editForm.title.trim() || editForm.genre.length === 0) {
       setMessage('Title and Genre are required.');
+      setMessageType('error');
+      return;
+    }
+
+    if (editForm.genre.includes('Fiction') && editForm.genre.includes('Non-Fiction')) {
+      setMessage('You may not select both Fiction and Non-Fiction at the same time.');
       setMessageType('error');
       return;
     }
@@ -67,7 +100,7 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             title: editForm.title.trim(),
-            genre: editForm.genre.trim(),
+            genre: editForm.genre.join(','),
             description: editForm.description.trim(),
           }),
         }
@@ -172,14 +205,28 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
                 </td>
                 <td>{new Date(book.publishDate).toLocaleDateString()}</td>
                 <td>
+                  {book.status === 'approved' && book.borrowed && (
+                    <span style={{ color: '#ffb86c', marginRight: '8px', fontSize: '0.8rem' }}>
+                      Borrowed
+                    </span>
+                  )}
+                  {book.status === 'rejected' && (
+                    <span style={{ color: '#ff6188', marginRight: '8px', fontSize: '0.8rem' }}>
+                      Rejected
+                    </span>
+                  )}
                   <button
                     onClick={() => handleEditClick(book)}
+                    disabled={!canEditBook(book)}
                     style={{
                       marginRight: '8px',
-                      backgroundColor: '#6272a4',
+                      backgroundColor: canEditBook(book) ? '#6272a4' : '#555a70',
                       padding: '6px 12px',
                       fontSize: '0.85rem',
+                      opacity: canEditBook(book) ? 1 : 0.65,
+                      cursor: canEditBook(book) ? 'pointer' : 'not-allowed',
                     }}
+                    title={!canEditBook(book) ? 'Cannot edit while this published book is borrowed.' : 'Edit book details'}
                   >
                     Edit
                   </button>
@@ -222,18 +269,21 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
             </div>
 
             <div className="form-row" style={{ marginBottom: '12px' }}>
-              <label htmlFor="edit-genre" style={{ width: '80px', marginRight: '8px' }}>
-                Genre:
-              </label>
-              <input
-                id="edit-genre"
-                type="text"
-                name="genre"
-                value={editForm.genre}
-                onChange={handleEditFormChange}
-                className="input"
-                style={{ flex: 1 }}
-              />
+              <label style={{ width: '80px', marginRight: '8px' }}>Genre:</label>
+              <div className="genres" style={{ flex: 1 }}>
+                {GENRES.map((g) => (
+                  <label key={g} className="genre-label" style={{ marginRight: '12px' }}>
+                    <input
+                      type="checkbox"
+                      name="genre"
+                      value={g}
+                      checked={editForm.genre.includes(g)}
+                      onChange={handleEditFormChange}
+                    />{' '}
+                    {g}
+                  </label>
+                ))}
+              </div>
             </div>
 
             <div className="form-row" style={{ marginBottom: '12px' }}>

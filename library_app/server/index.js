@@ -256,6 +256,7 @@ function releaseBorrowedBook(book) {
   delete book.borrowedAt;
   delete book.dueDate;
   delete book.dueAt;
+  updatePublishedBookBorrowedState(book.id, false);
 }
 
 function sweepExpiredBorrows(books) {
@@ -309,6 +310,32 @@ function ensureAuthorPublishedBooks(publishedBooks, username) {
     publishedBooks[username] = {};
   }
   return publishedBooks[username];
+}
+
+function updatePublishedBookBorrowedState(bookId, borrowed) {
+  const publishedBooks = readPublishedBooks();
+  const targetBookId = String(bookId);
+  let updated = false;
+
+  Object.values(publishedBooks).forEach((authorBooks) => {
+    if (!authorBooks || typeof authorBooks !== 'object') {
+      return;
+    }
+
+    Object.entries(authorBooks).forEach(([entryId, entry]) => {
+      if (String(entryId) === targetBookId || String(entry?.id) === targetBookId) {
+        authorBooks[entryId] = {
+          ...entry,
+          borrowed: Boolean(borrowed),
+        };
+        updated = true;
+      }
+    });
+  });
+
+  if (updated) {
+    writePublishedBooks(publishedBooks);
+  }
 }
 
 // Ignore already taken care
@@ -480,6 +507,7 @@ app.post('/api/borrow', (req, res) => {
   }
 
   writeBooks(books);
+  updatePublishedBookBorrowedState(book.id, true);
   if (username) {
     addNotificationForUser(username, 'dueReminders', `Due reminder: "${book.title}" is due on ${book.dueDate}.`);
   }
@@ -894,6 +922,7 @@ app.post('/api/publish',
       genre,
       description,
       status: 'pending',
+      borrowed: false,
       filePath: relativePdfPath,
       coverPath: relativeCoverPath,
       publishDate: newBook.publishDate,
@@ -1139,6 +1168,7 @@ app.post('/api/submissions/:id', (req, res) => {
       const authorBooks = ensureAuthorPublishedBooks(publishedBooks, book.authorUsername);
       if (authorBooks[book.id]) {
         authorBooks[book.id].status = 'approved';
+        authorBooks[book.id].borrowed = false;
       }
       writePublishedBooks(publishedBooks);
       
@@ -1169,13 +1199,13 @@ app.post('/api/submissions/:id', (req, res) => {
         showRejectionReasonToAuthor: Boolean(sendToAuthor),
         rejectionReason: rejectionReason.trim(),
       });
-      console.log(`Book rejected with reason: ${rejectionReason}`);
+      // console.log(`Book rejected with reason: ${rejectionReason}`);
     }
 
     // Remove the processed book (approved or rejected) from pendingBooks
     pendingBooks.splice(bookIndex, 1);
     writePendingBooks(pendingBooks);
-    console.log(`Book removed from pendingBooks.json.`);
+    // console.log(`Book removed from pendingBooks.json.`);
 
     res.json({ message: `Submission ${isApproved ? 'approved' : 'rejected'} successfully.` });
   } catch (err) {
@@ -1214,14 +1244,48 @@ app.patch('/api/published-books/:username/:bookId', (req, res) => {
     if (!authorBooks[bookId]) {
       return res.status(404).json({ error: 'Book not found.' });
     }
+
+    const targetBook = authorBooks[bookId];
+    const isPublished = targetBook.status === 'approved';
+    const isBorrowed = Boolean(targetBook.borrowed);
+
+    if (isPublished && isBorrowed) {
+      return res.status(409).json({
+        error: 'Cannot edit a published book while it is borrowed by a student/staff.',
+      });
+    }
     
     // Update allowed fields
-    if (title !== undefined) authorBooks[bookId].title = title;
-    if (genre !== undefined) authorBooks[bookId].genre = genre;
-    if (description !== undefined) authorBooks[bookId].description = description;
+    if (title !== undefined) targetBook.title = title;
+    if (genre !== undefined) targetBook.genre = genre;
+    if (description !== undefined) targetBook.description = description;
+
+    // Keep pendingBooks.json in sync if this title exists in pending submissions.
+    const pendingBooks = readPendingBooks();
+    const pendingBookIndex = pendingBooks.findIndex(
+      (book) => String(book.id) === String(bookId)
+    );
+    if (pendingBookIndex !== -1) {
+      if (title !== undefined) pendingBooks[pendingBookIndex].title = title;
+      if (genre !== undefined) pendingBooks[pendingBookIndex].genre = genre;
+      if (description !== undefined) pendingBooks[pendingBookIndex].description = description;
+      writePendingBooks(pendingBooks);
+    }
+
+    // Keep books.json in sync if this title exists in approved/available catalog.
+    const books = readBooks();
+    const libraryBookIndex = books.findIndex(
+      (book) => String(book.id) === String(bookId)
+    );
+    if (libraryBookIndex !== -1) {
+      if (title !== undefined) books[libraryBookIndex].title = title;
+      if (genre !== undefined) books[libraryBookIndex].genre = genre;
+      if (description !== undefined) books[libraryBookIndex].description = description;
+      writeBooks(books);
+    }
     
     writePublishedBooks(publishedBooks);
-    res.json({ message: 'Book updated successfully.', book: authorBooks[bookId] });
+    res.json({ message: 'Book updated successfully.', book: targetBook });
   } catch (err) {
     console.error('Error updating published book:', err);
     res.status(500).json({ error: 'Failed to update published book.' });
