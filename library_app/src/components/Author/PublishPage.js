@@ -2,6 +2,8 @@ import React, { useState, useEffect  } from 'react';
 import ConfirmSubmitPage from './ConfirmSubmitPage';
 
 const GENRES = ['Fiction', 'Non-Fiction', 'Science', 'History'];
+const MAX_BOOK_FILE_SIZE_BYTES = 15 * 1024 * 1024;
+const MAX_COVER_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const PublishPage = ({ currentUser, onBookPublished }) => {
   const [form, setForm] = useState({
@@ -109,6 +111,21 @@ const PublishPage = ({ currentUser, onBookPublished }) => {
       return;
     }
 
+    // file size/type validations
+    if (form.file) {
+      if (form.file.type !== 'application/pdf') {
+        setMessage('Book file must be a PDF.');
+        setMessageType('error');
+        return;
+      }
+
+      if (form.file.size > MAX_BOOK_FILE_SIZE_BYTES) {
+        setMessage('Book PDF must be smaller than 15 MB.');
+        setMessageType('error');
+        return;
+      }
+    }
+
     // cover validations if supplied
     if (form.cover) {
       const { type, size } = form.cover;
@@ -117,8 +134,8 @@ const PublishPage = ({ currentUser, onBookPublished }) => {
         setMessageType('error');
         return;
       }
-      if (size > 10 * 1024 * 1024) { // 10 MB limit
-        setMessage('Cover image must be smaller than 10 MB.');
+      if (size > MAX_COVER_FILE_SIZE_BYTES) {
+        setMessage('Cover image must be smaller than 5 MB.');
         setMessageType('error');
         return;
       }

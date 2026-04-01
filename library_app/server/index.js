@@ -902,8 +902,11 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// 10‑MB limit on any single file
-const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
+const MAX_BOOK_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+const MAX_COVER_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+
+// Hard cap keeps uploads bounded before route logic runs.
+const upload = multer({ storage, fileFilter, limits: { fileSize: MAX_BOOK_FILE_SIZE_BYTES } });
 
 app.post('/api/publish',
     upload.fields([{ name: 'file', maxCount: 1 }, { name: 'cover', maxCount: 1 }]),
@@ -919,6 +922,14 @@ app.post('/api/publish',
 
     const pdfFile = req.files.file[0];
     const coverFile = req.files.cover && req.files.cover[0];
+
+    if (pdfFile.size > MAX_BOOK_FILE_SIZE_BYTES) {
+      return res.status(400).json({ error: 'Book PDF must be smaller than 15 MB.' });
+    }
+
+    if (coverFile && coverFile.size > MAX_COVER_FILE_SIZE_BYTES) {
+      return res.status(400).json({ error: 'Cover image must be smaller than 5 MB.' });
+    }
 
     const relativePdfPath = path.relative(__dirname, pdfFile.path);
     const relativeCoverPath = coverFile ? path.relative(__dirname, coverFile.path) : '';
