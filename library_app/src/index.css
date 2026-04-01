@@ -226,10 +226,6 @@ button[type="submit"]:hover {
   margin-top: 8px;
 }
 
-.borrowed-books-screen button {
-  color: #e6e6e6;
-}
-
 .borrowed-books-screen table td:first-child {
   color: #ffb86c;
   font-weight: 600;
@@ -333,6 +329,71 @@ button[type="submit"]:hover {
 .highlight-item p {
   margin: 0 0 6px;
   color: #ffb86c;
+}
+
+.recommendations-box {
+  background: #23232e;
+  border: 1px solid #44475a;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 10px 0 16px;
+}
+
+.recommendations-box h3 {
+  margin: 0 0 8px;
+  color: #ffb86c;
+}
+
+.recommendations-box ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.recommendations-box li {
+  color: #e6e6e6;
+  margin-bottom: 6px;
+}
+
+.book-title-available {
+  color: #e6e6e6;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  display: inline;
+}
+
+.book-title-unavailable {
+  color: #ff5555;
+  font-weight: 600;
+}
+
+.quick-preview-modal,
+.borrow-confirm-modal {
+  max-width: 760px;
+  width: 92%;
+}
+
+.quick-preview-pages {
+  max-height: 68vh;
+  overflow: auto;
+  border: 1px solid #44475a;
+  border-radius: 6px;
+  padding: 8px;
+  margin: 10px 0;
+  background: #191a1f;
+}
+
+.warning-box {
+  background: #5a3600;
+  border: 1px solid #ffb86c;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 10px 0;
+}
+
+.warning-box p {
+  color: #ffe8c2;
+  margin: 0;
 }
 
 .highlight-item small {

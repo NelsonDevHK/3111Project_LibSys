@@ -467,6 +467,17 @@ app.post('/api/borrow', (req, res) => {
   book.borrowedAt = new Date().toISOString();
   book.dueDate = dueAt.toISOString().split('T')[0];
   book.dueAt = dueAt.toISOString();
+  book.borrowCount = (Number(book.borrowCount) || 0) + 1;
+  if (!Array.isArray(book.borrowHistory)) {
+    book.borrowHistory = [];
+  }
+  if (username) {
+    book.borrowHistory.unshift({
+      username,
+      borrowedAt: book.borrowedAt,
+      dueDate: book.dueDate,
+    });
+  }
 
   writeBooks(books);
   if (username) {

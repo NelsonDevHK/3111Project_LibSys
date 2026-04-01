@@ -22,11 +22,14 @@ function BookBorrowSection({ currentUser }) {
       if (res.ok) {
         const dueText = data?.book?.dueDate ? ` Due date: ${data.book.dueDate}.` : '';
         setBorrowMessage(`Book borrowed successfully!${dueText}`);
+        return true;
       } else {
         setBorrowMessage(data.error || 'Failed to borrow book.');
+        return false;
       }
     } catch {
       setBorrowMessage('Server error.');
+      return false;
     }
   };
 
@@ -50,7 +53,7 @@ function BookBorrowSection({ currentUser }) {
       </div>
 
       {activeView === 'available' ? (
-        <AvailableBooks onBorrow={handleBorrow} />
+        <AvailableBooks onBorrow={handleBorrow} currentUser={currentUser} />
       ) : (
         <BorrowedBooksScreen currentUser={currentUser} />
       )}
