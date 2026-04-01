@@ -1302,9 +1302,28 @@ app.delete('/api/published-books/:username/:bookId', (req, res) => {
     if (!authorBooks[bookId]) {
       return res.status(404).json({ error: 'Book not found.' });
     }
-    
+
+    const bookTitle = authorBooks[bookId].title;
     delete authorBooks[bookId];
     writePublishedBooks(publishedBooks);
+
+    // Also remove the same book from books.json if it exists there.
+    const books = readBooks();
+    const libraryBookIndex = books.findIndex((book) => String(book.id) === String(bookId));
+
+    if (libraryBookIndex !== -1) {
+      const [removedLibraryBook] = books.splice(libraryBookIndex, 1);
+      writeBooks(books);
+
+      if (removedLibraryBook?.borrowedBy) {
+        addNotificationForUser(
+          removedLibraryBook.borrowedBy,
+          'bookDeletionNotices',
+          `Book deletion notice: "${removedLibraryBook.title}" was deleted while it was borrowed.`
+        );
+      }
+    }
+
     res.json({ message: 'Book deleted successfully.' });
   } catch (err) {
     console.error('Error deleting published book:', err);
