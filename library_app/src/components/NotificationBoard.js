@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 const CATEGORY_LABELS = {
+	bookApprovalUpdates: 'Book Approval Updates',
+	bookRejectionUpdates: 'Book Rejection Updates',
 	bookUpdates: 'Book Approval/Rejection Updates',
 	newSubmissions: 'New Book Submissions',
 	accountUpdates: 'User Account Updates',

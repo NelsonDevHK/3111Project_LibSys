@@ -39,6 +39,8 @@ function validatePassword(password) {
 
 function createNotificationBuckets() {
   return {
+    bookApprovalUpdates: [],
+    bookRejectionUpdates: [],
     bookUpdates: [],
     newSubmissions: [],
     accountUpdates: [],
@@ -79,18 +81,20 @@ function ensureUserNotifications(notifications, username) {
     }
   });
 
-  // Migrate legacy rejectionReasons array into bookUpdates notifications.
-  if (Array.isArray(buckets.rejectionReasons) && buckets.bookUpdates.length === 0) {
-    buckets.bookUpdates = buckets.rejectionReasons.map((entry) => {
+  // Migrate legacy rejectionReasons array into rejection notifications.
+  if (Array.isArray(buckets.rejectionReasons) && buckets.bookRejectionUpdates.length === 0) {
+    buckets.bookRejectionUpdates = buckets.rejectionReasons.map((entry) => {
       const bookTitle = entry?.bookTitle || 'Untitled Book';
       const reason = entry?.rejectionReason || 'No reason provided.';
       return {
         id: entry?.id || randomUUID(),
-        category: 'bookUpdates',
-        message: `Book rejected: "${bookTitle}". Reason: ${reason}`,
+        category: 'bookRejectionUpdates',
+        message: `Book rejected: "${bookTitle}".`,
         timestamp: entry?.timestamp || new Date().toISOString(),
         unread: typeof entry?.unread === 'boolean' ? entry.unread : true,
         archived: Boolean(entry?.hidden),
+        showRejectionReasonToAuthor: true,
+        rejectionReason: reason,
       };
     });
     delete buckets.rejectionReasons;
@@ -121,8 +125,8 @@ function ensureUserNotifications(notifications, username) {
     });
   }
 
-  if (Array.isArray(buckets.bookUpdates)) {
-    buckets.bookUpdates = buckets.bookUpdates.map((entry) => {
+  if (Array.isArray(buckets.bookUpdates) && buckets.bookUpdates.length > 0) {
+    const normalizedLegacyEntries = buckets.bookUpdates.map((entry) => {
       const normalizedEntry = entry && typeof entry === 'object' ? { ...entry } : {
         id: randomUUID(),
         category: 'bookUpdates',
@@ -151,6 +155,27 @@ function ensureUserNotifications(notifications, username) {
 
       return normalizedEntry;
     });
+
+    normalizedLegacyEntries.forEach((entry) => {
+      const isRejection =
+        entry.showRejectionReasonToAuthor ||
+        Boolean(entry.rejectionReason) ||
+        /book\s+rejected/i.test(entry.message || '');
+
+      if (isRejection) {
+        buckets.bookRejectionUpdates.unshift({
+          ...entry,
+          category: 'bookRejectionUpdates',
+        });
+      } else {
+        buckets.bookApprovalUpdates.unshift({
+          ...entry,
+          category: 'bookApprovalUpdates',
+        });
+      }
+    });
+
+    buckets.bookUpdates = [];
   }
 
   return buckets;
@@ -166,7 +191,7 @@ function createNotification(message, category, metadata = {}) {
     archived: false,
   };
 
-  if (category === 'bookUpdates') {
+  if (category === 'bookUpdates' || category === 'bookRejectionUpdates') {
     return {
       ...base,
       showRejectionReasonToAuthor:
@@ -210,7 +235,7 @@ function addNotificationForRole(role, category, message, metadata = {}) {
 
 function categoriesForRole(role) {
   if (role === 'author') {
-    return ['bookUpdates', 'other'];
+    return ['bookApprovalUpdates', 'bookRejectionUpdates', 'other'];
   }
   if (role === 'librarian') {
     return ['newSubmissions', 'accountUpdates', 'other'];
@@ -1172,10 +1197,11 @@ app.post('/api/submissions/:id', (req, res) => {
       }
       writePublishedBooks(publishedBooks);
       
-      addNotificationForUser(book.authorUsername, 'bookUpdates', `Book approved: "${book.title}" has been approved and published.`, {
-        showRejectionReasonToAuthor: false,
-        rejectionReason: '',
-      });
+      addNotificationForUser(
+        book.authorUsername,
+        'bookApprovalUpdates',
+        `Book approved: "${book.title}" has been approved and published.`
+      );
       console.log(`Book approved and added to books.json.`);
     } else {
       if (!rejectionReason || !rejectionReason.trim()) {
@@ -1195,7 +1221,7 @@ app.post('/api/submissions/:id', (req, res) => {
       }
       writePublishedBooks(publishedBooks);
       
-      addNotificationForUser(book.authorUsername, 'bookUpdates', `Book rejected: "${book.title}" was rejected.`, {
+      addNotificationForUser(book.authorUsername, 'bookRejectionUpdates', `Book rejected: "${book.title}" was rejected.`, {
         showRejectionReasonToAuthor: Boolean(sendToAuthor),
         rejectionReason: rejectionReason.trim(),
       });
