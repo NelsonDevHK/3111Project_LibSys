@@ -211,6 +211,136 @@ button[type="submit"]:hover {
   font-weight: 500;
 }
 
+.borrowed-toggle-row {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0 18px;
+}
+
+.borrowed-toggle-row button.active {
+  background: #ffb86c;
+  color: #e6e6e6;
+}
+
+.borrowed-books-screen {
+  margin-top: 8px;
+}
+
+.borrowed-books-screen button {
+  color: #e6e6e6;
+}
+
+.borrowed-books-screen table td:first-child {
+  color: #ffb86c;
+  font-weight: 600;
+}
+
+.reader-panel h3 {
+  color: #ffb86c;
+}
+
+.reader-panel {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #44475a;
+  border-radius: 8px;
+  background: #23232e;
+}
+
+.reader-due-at {
+  font-size: 0.9rem;
+  color: #ffb86c;
+}
+
+.reader-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.pdf-reader {
+  width: 100%;
+  min-height: 560px;
+  border: 1px solid #44475a;
+  border-radius: 6px;
+  background: #191a1f;
+  overflow: auto;
+  padding: 12px;
+}
+
+.pdf-page-layer {
+  position: relative;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.pdf-page-layer .react-pdf__Page {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.pdf-highlight-overlay {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.35;
+  border-radius: 2px;
+}
+
+.pdf-highlight-overlay.selection-preview {
+  opacity: 0.5;
+  outline: 1px dashed #f8f8f2;
+}
+
+.highlight-form {
+  margin-top: 14px;
+}
+
+.highlight-form h4 {
+  color: #e6e6e6;
+}
+
+.highlight-form textarea {
+  width: calc(100% - 14px);
+}
+
+.highlight-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.selected-text-preview {
+  margin-top: 8px;
+  font-size: 0.95rem;
+  color: #b8b9c2;
+}
+
+.highlights-list {
+  margin-top: 12px;
+}
+
+.highlight-item {
+  border-left: 6px solid #fff59d;
+  background: #2e2f35;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-radius: 5px;
+}
+
+.highlight-item p {
+  margin: 0 0 6px;
+  color: #ffb86c;
+}
+
+.highlight-item small {
+  display: block;
+  margin-bottom: 6px;
+  color: #b8b9c2;
+}
+
 .info {
   color: #8be9fd;
   margin-top: 8px;

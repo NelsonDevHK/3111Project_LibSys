@@ -17,6 +17,7 @@ const app = express();
 const PORT = 4000;
 app.use(cors());
 app.use(express.json());
+app.use('/bookAssets', express.static(path.join(__dirname, 'bookAssets')));
 
 // User helpers
 function readUsers() {
@@ -231,6 +232,61 @@ function writeBooks(books) {
   fs.writeFileSync(BOOKS_FILE, JSON.stringify({ books }, null, 2));
 }
 
+function getBookDueTime(book) {
+  if (book?.dueAt) {
+    const dueAtMs = new Date(book.dueAt).getTime();
+    if (Number.isFinite(dueAtMs)) {
+      return dueAtMs;
+    }
+  }
+
+  if (book?.dueDate) {
+    const dueDateMs = new Date(`${book.dueDate}T23:59:59`).getTime();
+    if (Number.isFinite(dueDateMs)) {
+      return dueDateMs;
+    }
+  }
+
+  return null;
+}
+
+function releaseBorrowedBook(book) {
+  book.status = 'available';
+  delete book.borrowedBy;
+  delete book.borrowedAt;
+  delete book.dueDate;
+  delete book.dueAt;
+}
+
+function sweepExpiredBorrows(books) {
+  const now = Date.now();
+  let changed = false;
+
+  books.forEach((book) => {
+    if (book.status !== 'borrowed' || !book.borrowedBy) {
+      return;
+    }
+
+    const dueTime = getBookDueTime(book);
+    if (dueTime !== null && dueTime <= now) {
+      const previousBorrower = book.borrowedBy;
+      const previousTitle = book.title;
+      releaseBorrowedBook(book);
+      changed = true;
+
+      addNotificationForUser(
+        previousBorrower,
+        'dueReminders',
+        `Auto-return complete: "${previousTitle}" was returned because the borrowing period expired.`
+      );
+    }
+  });
+
+  if (changed) {
+    writeBooks(books);
+  }
+}
+
 // Published Books helpers
 function readPublishedBooks() {
   if (!fs.existsSync(PUBLISHED_BOOKS_FILE)) {
@@ -383,6 +439,7 @@ app.post('/api/profile/update', (req, res) => {
 // Book routes
 app.get('/api/books', (req, res) => {
   const books = readBooks();
+  sweepExpiredBorrows(books);
   res.json({ books });
 });
 
@@ -409,6 +466,7 @@ app.post('/api/borrow', (req, res) => {
   }
   book.borrowedAt = new Date().toISOString();
   book.dueDate = dueAt.toISOString().split('T')[0];
+  book.dueAt = dueAt.toISOString();
 
   writeBooks(books);
   if (username) {
@@ -416,6 +474,181 @@ app.post('/api/borrow', (req, res) => {
   }
 
   res.json({ message: 'Book borrowed successfully!', book });
+});
+
+app.get('/api/borrowed/:username', (req, res) => {
+  const { username } = req.params;
+  if (!username) {
+    return res.status(400).json({ error: 'Missing username.' });
+  }
+
+  const books = readBooks();
+  sweepExpiredBorrows(books);
+
+  const now = Date.now();
+  const borrowedBooks = books
+    .filter((book) => book.status === 'borrowed' && book.borrowedBy === username)
+    .map((book) => {
+      const dueTime = getBookDueTime(book);
+      return {
+        ...book,
+        isOverdue: dueTime !== null ? dueTime <= now : false,
+      };
+    });
+
+  res.json({ books: borrowedBooks });
+});
+
+app.post('/api/return', (req, res) => {
+  const { bookId, username } = req.body;
+
+  if (!bookId || !username) {
+    return res.status(400).json({ error: 'bookId and username are required.' });
+  }
+
+  const books = readBooks();
+  sweepExpiredBorrows(books);
+
+  const numericBookId = Number(bookId);
+  const book = books.find((b) => b.id === numericBookId || String(b.id) === String(bookId));
+
+  if (!book) {
+    return res.status(404).json({ error: 'Book not found.' });
+  }
+
+  if (book.status !== 'borrowed' || book.borrowedBy !== username) {
+    return res.status(409).json({ error: 'Book is not currently borrowed by this user.' });
+  }
+
+  const returnedTitle = book.title;
+  releaseBorrowedBook(book);
+  writeBooks(books);
+
+  addNotificationForUser(username, 'dueReminders', `Return complete: "${returnedTitle}" was returned successfully.`);
+  res.json({ message: 'Book returned successfully.', book });
+});
+
+app.get('/api/reading-progress/:username/:bookId', (req, res) => {
+  const { username, bookId } = req.params;
+  const books = readBooks();
+  const numericBookId = Number(bookId);
+  const book = books.find((b) => b.id === numericBookId || String(b.id) === String(bookId));
+
+  if (!book) {
+    return res.status(404).json({ error: 'Book not found.' });
+  }
+
+  const readingData = book.readingData && typeof book.readingData === 'object' ? book.readingData : {};
+  const userData = readingData[username] || { bookmarkPage: 1, highlights: [] };
+  if (!Array.isArray(userData.highlights)) {
+    userData.highlights = [];
+  }
+
+  res.json({ readingProgress: userData });
+});
+
+app.post('/api/reading-progress', (req, res) => {
+  const { username, bookId, bookmarkPage } = req.body;
+  if (!username || !bookId) {
+    return res.status(400).json({ error: 'username and bookId are required.' });
+  }
+
+  const page = Number.isFinite(Number(bookmarkPage)) ? Math.max(1, Math.floor(Number(bookmarkPage))) : 1;
+  const books = readBooks();
+  const numericBookId = Number(bookId);
+  const book = books.find((b) => b.id === numericBookId || String(b.id) === String(bookId));
+
+  if (!book) {
+    return res.status(404).json({ error: 'Book not found.' });
+  }
+
+  if (!book.readingData || typeof book.readingData !== 'object') {
+    book.readingData = {};
+  }
+  if (!book.readingData[username] || typeof book.readingData[username] !== 'object') {
+    book.readingData[username] = { bookmarkPage: 1, highlights: [] };
+  }
+  if (!Array.isArray(book.readingData[username].highlights)) {
+    book.readingData[username].highlights = [];
+  }
+
+  book.readingData[username].bookmarkPage = page;
+  book.readingData[username].updatedAt = new Date().toISOString();
+
+  writeBooks(books);
+  res.json({ message: 'Reading progress saved.', readingProgress: book.readingData[username] });
+});
+
+app.post('/api/highlights', (req, res) => {
+  const { username, bookId, text, page, color, rects } = req.body;
+  if (!username || !bookId || !text || !String(text).trim()) {
+    return res.status(400).json({ error: 'username, bookId and text are required.' });
+  }
+
+  const books = readBooks();
+  const numericBookId = Number(bookId);
+  const book = books.find((b) => b.id === numericBookId || String(b.id) === String(bookId));
+  if (!book) {
+    return res.status(404).json({ error: 'Book not found.' });
+  }
+
+  if (!book.readingData || typeof book.readingData !== 'object') {
+    book.readingData = {};
+  }
+  if (!book.readingData[username] || typeof book.readingData[username] !== 'object') {
+    book.readingData[username] = { bookmarkPage: 1, highlights: [] };
+  }
+  if (!Array.isArray(book.readingData[username].highlights)) {
+    book.readingData[username].highlights = [];
+  }
+
+  const highlight = {
+    id: randomUUID(),
+    text: String(text).trim(),
+    page: Number.isFinite(Number(page)) ? Math.max(1, Math.floor(Number(page))) : null,
+    color: typeof color === 'string' && color.trim() ? color.trim() : '#fff59d',
+    rects: Array.isArray(rects)
+      ? rects
+          .map((rect) => ({
+            leftPct: Number(rect?.leftPct) || 0,
+            topPct: Number(rect?.topPct) || 0,
+            widthPct: Number(rect?.widthPct) || 0,
+            heightPct: Number(rect?.heightPct) || 0,
+          }))
+          .filter((rect) => rect.widthPct > 0 && rect.heightPct > 0)
+      : [],
+    timestamp: new Date().toISOString(),
+  };
+
+  book.readingData[username].highlights.unshift(highlight);
+  writeBooks(books);
+
+  res.json({ message: 'Highlight saved.', highlight });
+});
+
+app.delete('/api/highlights/:username/:bookId/:highlightId', (req, res) => {
+  const { username, bookId, highlightId } = req.params;
+  const books = readBooks();
+  const numericBookId = Number(bookId);
+  const book = books.find((b) => b.id === numericBookId || String(b.id) === String(bookId));
+  if (!book) {
+    return res.status(404).json({ error: 'Book not found.' });
+  }
+
+  const userData = book.readingData && book.readingData[username];
+  if (!userData || !Array.isArray(userData.highlights)) {
+    return res.status(404).json({ error: 'Highlight not found.' });
+  }
+
+  const before = userData.highlights.length;
+  userData.highlights = userData.highlights.filter((item) => item.id !== highlightId);
+
+  if (userData.highlights.length === before) {
+    return res.status(404).json({ error: 'Highlight not found.' });
+  }
+
+  writeBooks(books);
+  res.json({ message: 'Highlight removed.' });
 });
 
 app.delete('/api/books/:id', (req, res) => {

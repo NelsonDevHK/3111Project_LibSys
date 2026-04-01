@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import AvailableBooks from './AvailableBooks';
+import BorrowedBooksScreen from './BorrowedBooksScreen';
 
 function BookBorrowSection({ currentUser }) {
   const [borrowMessage, setBorrowMessage] = useState('');
+  const [activeView, setActiveView] = useState('available');
 
   const handleBorrow = async (bookId, durationDays) => {
     setBorrowMessage('');
@@ -30,7 +32,29 @@ function BookBorrowSection({ currentUser }) {
 
   return (
     <>
-      <AvailableBooks onBorrow={handleBorrow} />
+      <div className="borrowed-toggle-row">
+        <button
+          type="button"
+          className={activeView === 'available' ? 'active' : ''}
+          onClick={() => setActiveView('available')}
+        >
+          Available Books
+        </button>
+        <button
+          type="button"
+          className={activeView === 'borrowed' ? 'active' : ''}
+          onClick={() => setActiveView('borrowed')}
+        >
+          My Borrowed Books
+        </button>
+      </div>
+
+      {activeView === 'available' ? (
+        <AvailableBooks onBorrow={handleBorrow} />
+      ) : (
+        <BorrowedBooksScreen currentUser={currentUser} />
+      )}
+
       {borrowMessage && <div className="success">{borrowMessage}</div>}
     </>
   );
