@@ -1,15 +1,15 @@
 {
   "books": [
     {
-      "id": 1775063820981,
-      "title": "asdf",
+      "id": 1775121575704,
+      "title": "Book 3",
       "authorUsername": "author1",
       "authorFullName": "Author One",
       "genre": "Fiction",
-      "description": "adsfa",
-      "filePath": "bookAssets/1775063820975.pdf",
+      "description": "",
+      "filePath": "bookAssets/1775121575699.pdf",
       "coverPath": "",
-      "publishDate": "2026-04-01",
+      "publishDate": "2026-04-02",
       "approved": true,
       "status": "available"
     }

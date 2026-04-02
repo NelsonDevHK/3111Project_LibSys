@@ -1,0 +1,28 @@
+{
+  "author1": [
+    {
+      "id": "65f4a56c-2c42-4138-806c-0a5be9642b84",
+      "bookTitle": "Book 1",
+      "rejectionReason": "a",
+      "hidden": false
+    },
+    {
+      "id": "51e643c8-3fe3-4f1d-a3d1-4382e083d88a",
+      "bookTitle": "Book 2",
+      "rejectionReason": "a",
+      "hidden": false
+    },
+    {
+      "id": "fba4a7ed-9c42-4b06-b562-4f35af8b5f1e",
+      "bookTitle": "asdf",
+      "rejectionReason": "asdf",
+      "hidden": false
+    },
+    {
+      "id": "c3517c14-398b-460e-b035-547676f8b36f",
+      "bookTitle": "asdfadsfadsf",
+      "rejectionReason": "asdf",
+      "hidden": false
+    }
+  ]
+}

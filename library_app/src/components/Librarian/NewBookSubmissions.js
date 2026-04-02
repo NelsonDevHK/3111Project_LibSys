@@ -22,24 +22,52 @@ function NewBookSubmissions() {
       return;
     }
 
+    let rejectionReason = '';
+    if (!isApproved) {
+      const enteredReason = window.prompt('Please provide a rejection reason for selected submissions:');
+      rejectionReason = enteredReason ? enteredReason.trim() : '';
+
+      if (!rejectionReason) {
+        alert('A rejection reason is required.');
+        return;
+      }
+    }
+
     if (!window.confirm(`Are you sure you want to ${isApproved ? 'approve' : 'reject'} the selected submissions?`)) {
       return;
     }
 
     try {
-      await Promise.all(
-        selectedSubmissions.map((id) =>
-          fetch(`http://localhost:4000/api/submissions/${id}`, {
+      const responses = await Promise.all(
+        selectedSubmissions.map(async (id) => {
+          const response = await fetch(`http://localhost:4000/api/submissions/${id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ isApproved })
-          })
-        )
+            body: JSON.stringify({
+              isApproved,
+              rejectionReason: isApproved ? undefined : rejectionReason,
+              sendToAuthor: !isApproved,
+            }),
+          });
+
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(payload.error || `Failed to ${isApproved ? 'approve' : 'reject'} submission ${id}.`);
+          }
+
+          return response;
+        })
       );
+
+      if (responses.length > 0) {
+        alert(`Selected submissions ${isApproved ? 'approved' : 'rejected'} successfully.`);
+      }
+
       fetchSubmissions();
       setSelectedSubmissions([]);
-    } catch {
-      console.error('Failed to perform bulk action.');
+    } catch (error) {
+      console.error('Failed to perform bulk action.', error);
+      alert(error.message || 'Failed to perform bulk action.');
     }
   };
 

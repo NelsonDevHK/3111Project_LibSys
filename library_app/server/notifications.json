@@ -5,25 +5,48 @@
     "dueReminders": [],
     "bookDeletionNotices": [],
     "other": [],
-    "bookApprovalUpdates": [
+    "bookApprovalUpdates": [],
+    "bookRejectionUpdates": [
       {
-        "id": "2cd18fcc-46cf-4e77-a806-2002ce7496f1",
-        "category": "bookApprovalUpdates",
-        "message": "Book approved: \"asdf\" has been approved and published.",
-        "timestamp": "2026-04-02T09:13:57.843Z",
+        "id": "b2485e7d-27b6-4198-9100-53caa8c70ef4",
+        "category": "bookRejectionUpdates",
+        "message": "Book rejected: \"asdfadsfadsf\" was rejected.",
+        "timestamp": "2026-04-02T09:21:39.065Z",
         "unread": true,
-        "archived": false
+        "archived": false,
+        "showRejectionReasonToAuthor": true,
+        "rejectionReason": "asdf"
       },
       {
-        "id": "0bc55ce9-1cbf-444f-b384-68d4df49b4db",
-        "category": "bookApprovalUpdates",
-        "message": "Book approved: \"New Book 1\" has been approved and published.",
-        "timestamp": "2026-04-01T16:53:12.350Z",
+        "id": "0ca1c512-bb99-4112-9bcd-8139011f6d22",
+        "category": "bookRejectionUpdates",
+        "message": "Book rejected: \"asdf\" was rejected.",
+        "timestamp": "2026-04-02T09:21:39.055Z",
         "unread": true,
-        "archived": false
-      }
-    ],
-    "bookRejectionUpdates": [
+        "archived": false,
+        "showRejectionReasonToAuthor": true,
+        "rejectionReason": "asdf"
+      },
+      {
+        "id": "534ad489-132d-4fe8-b898-a8496bc2a9e9",
+        "category": "bookRejectionUpdates",
+        "message": "Book rejected: \"Book 2\" was rejected.",
+        "timestamp": "2026-04-02T09:20:12.563Z",
+        "unread": true,
+        "archived": false,
+        "showRejectionReasonToAuthor": true,
+        "rejectionReason": "a"
+      },
+      {
+        "id": "67f20cd7-f6ff-4308-a614-bd428131869f",
+        "category": "bookRejectionUpdates",
+        "message": "Book rejected: \"Book 1\" was rejected.",
+        "timestamp": "2026-04-02T09:20:12.551Z",
+        "unread": true,
+        "archived": false,
+        "showRejectionReasonToAuthor": true,
+        "rejectionReason": "a"
+      },
       {
         "id": "73e4ee64-ad9a-4001-a2fb-050bc184d400",
         "category": "bookRejectionUpdates",
@@ -50,19 +73,11 @@
   "librarian1": {
     "newSubmissions": [
       {
-        "id": "dca847bc-01c9-4a75-88fa-1c6f63fb2868",
+        "id": "081d10e7-2c98-453e-8e00-10603f2d8ec1",
         "category": "newSubmissions",
-        "message": "New submission: \"asdf\" by author1.",
-        "timestamp": "2026-04-01T17:17:00.982Z",
-        "unread": false,
-        "archived": false
-      },
-      {
-        "id": "f17990d5-5efa-44a9-a30f-dcbe58a7da1e",
-        "category": "newSubmissions",
-        "message": "New submission: \"Big file\" by author1.",
-        "timestamp": "2026-04-01T16:59:26.978Z",
-        "unread": false,
+        "message": "New submission: \"asdfadsfadsf\" by author1.",
+        "timestamp": "2026-04-02T09:20:54.932Z",
+        "unread": true,
         "archived": false
       }
     ],
@@ -97,7 +112,40 @@
     "bookApprovalUpdates": [],
     "bookRejectionUpdates": [],
     "bookUpdates": [],
-    "newSubmissions": [],
+    "newSubmissions": [
+      {
+        "id": "2f2516e7-d259-4ae0-9879-0da088c4b708",
+        "category": "newSubmissions",
+        "message": "New submission: \"asdfadsfadsf\" by author1.",
+        "timestamp": "2026-04-02T09:20:54.932Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "1e475a00-5099-44bf-a54d-f0d740b006de",
+        "category": "newSubmissions",
+        "message": "New submission: \"Book 3\" by author1.",
+        "timestamp": "2026-04-02T09:19:35.705Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "3009dcb5-538f-4291-bf37-8eab5a69fab0",
+        "category": "newSubmissions",
+        "message": "New submission: \"Book 2\" by author1.",
+        "timestamp": "2026-04-02T09:19:29.328Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "17425f4f-72cf-4a44-9d50-ff3b8602acf1",
+        "category": "newSubmissions",
+        "message": "New submission: \"Book 1\" by author1.",
+        "timestamp": "2026-04-02T09:19:21.668Z",
+        "unread": true,
+        "archived": false
+      }
+    ],
     "accountUpdates": [],
     "dueReminders": [],
     "bookDeletionNotices": [],

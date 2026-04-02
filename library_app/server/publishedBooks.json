@@ -1,15 +1,51 @@
 {
   "author1": {
-    "1775063820981": {
-      "id": 1775063820981,
-      "title": "asdf",
+    "1775121561667": {
+      "id": 1775121561667,
+      "title": "Book 1",
       "genre": "Fiction",
-      "description": "adsfa",
+      "description": "",
+      "status": "rejected",
+      "borrowed": false,
+      "filePath": "bookAssets/1775121561658.pdf",
+      "coverPath": "",
+      "publishDate": "2026-04-02",
+      "rejectionReason": "a"
+    },
+    "1775121569327": {
+      "id": 1775121569327,
+      "title": "Book 2",
+      "genre": "Non-Fiction",
+      "description": "",
+      "status": "rejected",
+      "borrowed": false,
+      "filePath": "bookAssets/1775121569318.pdf",
+      "coverPath": "",
+      "publishDate": "2026-04-02",
+      "rejectionReason": "a"
+    },
+    "1775121575704": {
+      "id": 1775121575704,
+      "title": "Book 3",
+      "genre": "Fiction",
+      "description": "",
       "status": "approved",
       "borrowed": false,
-      "filePath": "bookAssets/1775063820975.pdf",
+      "filePath": "bookAssets/1775121575699.pdf",
       "coverPath": "",
-      "publishDate": "2026-04-01"
+      "publishDate": "2026-04-02"
+    },
+    "1775121654931": {
+      "id": 1775121654931,
+      "title": "asdfadsfadsf",
+      "genre": "Fiction",
+      "description": "",
+      "status": "rejected",
+      "borrowed": false,
+      "filePath": "bookAssets/1775121654926.pdf",
+      "coverPath": "",
+      "publishDate": "2026-04-02",
+      "rejectionReason": "asdf"
     }
   }
 }
