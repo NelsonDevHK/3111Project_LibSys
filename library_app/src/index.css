@@ -808,6 +808,10 @@ button[type="submit"]:hover {
   margin: 0 0 12px 0;
 }
 
-.manage-users h1, .borrowed-book-record h1 {
+.manage-users h1,
+.borrowed-books-record h1,
+.submissions h3 {
   color: #ffb86c;
+  margin-bottom: 24px;
+  font-size: 2rem;
 }
