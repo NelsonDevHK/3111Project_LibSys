@@ -1416,7 +1416,18 @@ app.patch('/users/:id/status', (req, res) => {
   res.json(users[userIndex]);
 });
 
-// Start server
+// API endpoint to fetch users
+app.get('/api/users', (req, res) => {
+  try {
+    const users = readUsers();
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Start the server
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server is running on http://localhost:${PORT}`);
 });

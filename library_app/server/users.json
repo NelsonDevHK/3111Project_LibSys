@@ -25,6 +25,13 @@
       "password": "1",
       "role": "librarian",
       "employeeId": "LIB001"
+    },
+    {
+      "username": "l2",
+      "fullName": "Librarian Two",
+      "password": "2",
+      "role": "librarian",
+      "employeeId": "LIB002"
     }
   ]
 }

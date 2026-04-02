@@ -19,6 +19,8 @@ function NotificationBoard({ currentUser }) {
 	const [search, setSearch] = useState('');
 	const [feedbackMessage, setFeedbackMessage] = useState('');
 	const [feedbackType, setFeedbackType] = useState('');
+	const [filterDate, setFilterDate] = useState('');
+	const [filterUrgency, setFilterUrgency] = useState('all');
 
 	const fetchNotifications = useCallback(async () => {
 		if (!currentUser?.username || !currentUser?.role) return;
@@ -104,6 +106,37 @@ function NotificationBoard({ currentUser }) {
 		return `${baseMessage} Reason: ${item.rejectionReason}`;
 	};
 
+	const calculateUrgency = (timestamp) => {
+		const now = new Date();
+		const notificationDate = new Date(timestamp);
+		const diffInDays = Math.floor((now - notificationDate) / (1000 * 60 * 60 * 24));
+
+		if (diffInDays > 14) return 'high';
+		if (diffInDays >= 7) return 'medium';
+		return 'low';
+	};
+
+	const filteredNotifications = useMemo(() => {
+		if (!categories || Object.keys(categories).length === 0) {
+			return visibleCategoryKeys.flatMap((category) => categories[category] || []);
+		}
+		return visibleCategoryKeys.flatMap((category) => {
+			const items = (categories[category] || []).filter((item) => {
+				const matchesSearch = normalizedSearch
+					? renderMessage(item).toLowerCase().includes(normalizedSearch)
+					: true;
+				const matchesDate = filterDate
+					? new Date(item.timestamp).toLocaleDateString() === new Date(filterDate).toLocaleDateString()
+					: true;
+				const urgency = calculateUrgency(item.timestamp);
+				const matchesUrgency =
+					filterUrgency === 'all' || urgency === filterUrgency;
+				return matchesSearch && matchesDate && matchesUrgency;
+			});
+			return items;
+		});
+	}, [categories, visibleCategoryKeys, normalizedSearch, filterDate, filterUrgency]);
+
 	return (
 		<section className="notification-board">
 			<div className="notification-board-header">
@@ -126,6 +159,21 @@ function NotificationBoard({ currentUser }) {
 						</option>
 					))}
 				</select>
+				<input
+					type="date"
+					value={filterDate}
+					onChange={(event) => setFilterDate(event.target.value)}
+					placeholder="Filter by date"
+				/>
+				<select
+					value={filterUrgency}
+					onChange={(event) => setFilterUrgency(event.target.value)}
+				>
+					<option value="all">All Urgencies</option>
+					<option value="low">Low</option>
+					<option value="medium">Medium</option>
+					<option value="high">High</option>
+				</select>
 				<label className="notification-archive-toggle">
 					<input
 						type="checkbox"
@@ -136,107 +184,29 @@ function NotificationBoard({ currentUser }) {
 				</label>
 			</div>
 
-			{visibleCategoryKeys.map((category) => {
-				const items = (categories[category] || [])
-					.filter((item) => {
-						if (!normalizedSearch) return true;
-						return renderMessage(item).toLowerCase().includes(normalizedSearch);
-					})
-					.sort((a, b) => {
-						const aTime = new Date(a.timestamp || 0).getTime();
-						const bTime = new Date(b.timestamp || 0).getTime();
-						return bTime - aTime;
-					});
-
-				const activeItems = items.filter((item) => !item.archived);
-				const archivedItems = items.filter((item) => item.archived);
-				const shouldShowSection = activeItems.length > 0 || (showArchived && archivedItems.length > 0);
-
-				if (!shouldShowSection) {
-					return null;
-				}
-
-				return (
-					<div key={category} className="notification-category-section">
-						<h4>{CATEGORY_LABELS[category] || category}</h4>
-						<div className="notification-list">
-							{activeItems.length === 0 && <p className="notification-empty">No active notifications.</p>}
-							{activeItems.map((item) => (
-								<div key={item.id} className={`notification-item ${item.unread ? 'unread' : 'read'}`}>
-									<div className="notification-item-copy">
-										<p>{renderMessage(item)}</p>
-										<p className="notification-time">{new Date(item.timestamp).toLocaleString()}</p>
-									</div>
-									<div className="notification-actions">
-										{item.unread && (
-											<button type="button" onClick={() => updateNotification(category, item.id, 'read')}>
-												Mark as Read
-											</button>
-										)}
-										<button
-											type="button"
-											onClick={() => updateNotification(category, item.id, item.archived ? 'unarchive' : 'archive')}
-										>
-											{item.archived ? 'Unarchive' : 'Archive'}
-										</button>
-										<button type="button" onClick={() => deleteNotification(category, item.id)}>
-											Delete
-										</button>
-									</div>
-								</div>
-							))}
-						</div>
-
-						{showArchived && (
-							<div className="notification-archived-section">
-								<h5>Archived</h5>
-								<div className="notification-list">
-									{archivedItems.length === 0 && (
-										<p className="notification-empty">no archived notifications</p>
-									)}
-									{archivedItems.map((item) => (
-										<div key={item.id} className={`notification-item ${item.unread ? 'unread' : 'read'}`}>
-											<div className="notification-item-copy">
-												<p>{renderMessage(item)}</p>
-												<p className="notification-time">{new Date(item.timestamp).toLocaleString()}</p>
-											</div>
-											<div className="notification-actions">
-												{item.unread && (
-													<button type="button" onClick={() => updateNotification(category, item.id, 'read')}>
-														Mark as Read
-													</button>
-												)}
-												<button
-													type="button"
-													onClick={() => updateNotification(category, item.id, item.archived ? 'unarchive' : 'archive')}
-												>
-													{item.archived ? 'Unarchive' : 'Archive'}
-												</button>
-												<button type="button" onClick={() => deleteNotification(category, item.id)}>
-													Delete
-												</button>
-											</div>
-										</div>
-									))}
-								</div>
-							</div>
+			{filteredNotifications.map((item) => (
+				<div key={item.id} className={`notification-item ${item.unread ? 'unread' : 'read'}`}>
+					{/* Render notification details */}
+					<p>{renderMessage(item)}</p>
+					<p className="notification-time">{new Date(item.timestamp).toLocaleString()}</p>
+					<div className="notification-actions">
+						{item.unread && (
+							<button type="button" onClick={() => updateNotification(item.category, item.id, 'read')}>
+								Mark as Read
+							</button>
 						)}
+						<button
+							type="button"
+							onClick={() => updateNotification(item.category, item.id, item.archived ? 'unarchive' : 'archive')}
+						>
+							{item.archived ? 'Unarchive' : 'Archive'}
+						</button>
+						<button type="button" onClick={() => deleteNotification(item.category, item.id)}>
+							Delete
+						</button>
 					</div>
-				);
-			})}
-
-			{visibleCategoryKeys.every((category) => {
-				const items = (categories[category] || [])
-					.filter((item) => {
-						if (!normalizedSearch) return true;
-						return renderMessage(item).toLowerCase().includes(normalizedSearch);
-					});
-				const activeItems = items.filter((item) => !item.archived);
-				const archivedItems = items.filter((item) => item.archived);
-				return !(activeItems.length > 0 || (showArchived && archivedItems.length > 0));
-			}) && <p>No notifications available.</p>}
-
-			{feedbackMessage && <p className={feedbackType === 'error' ? 'error' : 'info'}>{feedbackMessage}</p>}
+				</div>
+			))}
 		</section>
 	);
 }
