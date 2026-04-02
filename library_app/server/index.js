@@ -8,6 +8,7 @@ const { randomUUID } = require('crypto');
 // File paths
 const USERS_FILE = path.join(__dirname, 'users.json');
 const BOOKS_FILE = path.join(__dirname, 'books.json');
+const BORROWED_BOOKS_FILE = path.join(__dirname, 'borrowedBooks.json');
 const REJECTION_REASONS_FILE = path.join(__dirname, 'rejectionReason.json');
 const NOTIFICATIONS_FILE = path.join(__dirname, 'notifications.json');
 const PUBLISHED_BOOKS_FILE = path.join(__dirname, 'publishedBooks.json');
@@ -257,6 +258,179 @@ function writeBooks(books) {
   fs.writeFileSync(BOOKS_FILE, JSON.stringify({ books }, null, 2));
 }
 
+function readBorrowedBooksRecords() {
+  if (!fs.existsSync(BORROWED_BOOKS_FILE)) {
+    return [];
+  }
+
+  try {
+    const data = fs.readFileSync(BORROWED_BOOKS_FILE, 'utf-8');
+    if (!data) {
+      return [];
+    }
+
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.error('Error reading borrowedBooks.json:', err);
+    return [];
+  }
+}
+
+function writeBorrowedBooksRecords(records) {
+  fs.writeFileSync(BORROWED_BOOKS_FILE, JSON.stringify(records, null, 2));
+}
+
+function trackBorrowedBooksEvent(book, borrowerUsername, status) {
+  if (!book || !borrowerUsername) {
+    return;
+  }
+
+  const records = readBorrowedBooksRecords();
+  const borrowedDateValue = book.borrowedAt
+    ? new Date(book.borrowedAt).toISOString().split('T')[0]
+    : new Date().toISOString().split('T')[0];
+
+  const existingIndex = records.findIndex((record) => {
+    return (
+      String(record.bookId || '') === String(book.id) &&
+      String(record.borrowerUsername || '') === String(borrowerUsername) &&
+      String(record.borrowDate || '') === String(borrowedDateValue)
+    );
+  });
+
+  const nextRecord = {
+    bookId: book.id,
+    bookTitle: book.title || 'Untitled Book',
+    borrowerUsername,
+    borrowDate: borrowedDateValue,
+    returnDate: status === 'returned' ? new Date().toISOString().split('T')[0] : (book.dueDate || ''),
+    status,
+  };
+
+  if (existingIndex === -1) {
+    records.unshift(nextRecord);
+  } else {
+    records[existingIndex] = {
+      ...records[existingIndex],
+      ...nextRecord,
+    };
+  }
+
+  writeBorrowedBooksRecords(records);
+}
+
+function getAllBorrowedBooksRecords() {
+  const now = Date.now();
+  const historicalRecords = readBorrowedBooksRecords();
+  const books = readBooks();
+
+  const activeRecords = books
+    .filter((book) => book.status === 'borrowed' && book.borrowedBy)
+    .map((book) => {
+      const dueTime = getBookDueTime(book);
+      const status = dueTime !== null && dueTime <= now ? 'overdue' : 'borrowed';
+      const borrowDate = book.borrowedAt
+        ? new Date(book.borrowedAt).toISOString().split('T')[0]
+        : '';
+
+      return {
+        bookId: book.id,
+        bookTitle: book.title || 'Untitled Book',
+        borrowerUsername: book.borrowedBy,
+        borrowDate,
+        returnDate: book.dueDate || '',
+        status,
+      };
+    });
+
+  const merged = [...historicalRecords];
+  activeRecords.forEach((activeRecord) => {
+    const exists = merged.some((record) => {
+      return (
+        String(record.bookId || '') === String(activeRecord.bookId || '') &&
+        String(record.borrowerUsername || '') === String(activeRecord.borrowerUsername || '') &&
+        String(record.borrowDate || '') === String(activeRecord.borrowDate || '') &&
+        ['borrowed', 'overdue'].includes(String(record.status || '').toLowerCase())
+      );
+    });
+
+    if (!exists) {
+      merged.unshift(activeRecord);
+    }
+  });
+
+  return merged;
+}
+
+const VALID_USER_ROLES = ['student', 'staff', 'author', 'librarian'];
+const VALID_USER_STATUSES = ['active', 'deactivated'];
+
+function normalizeUserRecord(user) {
+  if (!user || typeof user !== 'object') {
+    return null;
+  }
+
+  return {
+    ...user,
+    username: String(user.username || '').trim(),
+    fullName: String(user.fullName || '').trim(),
+    role: String(user.role || '').toLowerCase(),
+    status: VALID_USER_STATUSES.includes(String(user.status || '').toLowerCase())
+      ? String(user.status).toLowerCase()
+      : 'active',
+    lastLoginAt: typeof user.lastLoginAt === 'string' ? user.lastLoginAt : '',
+  };
+}
+
+function buildUserActivityMetrics(username, books = null) {
+  const sourceBooks = Array.isArray(books) ? books : readBooks();
+  const normalizedUsername = String(username || '');
+  let currentlyBorrowedCount = 0;
+  let totalBorrowedCount = 0;
+
+  sourceBooks.forEach((book) => {
+    if (String(book.borrowedBy || '') === normalizedUsername) {
+      currentlyBorrowedCount += 1;
+    }
+
+    if (Array.isArray(book.borrowHistory)) {
+      totalBorrowedCount += book.borrowHistory.filter(
+        (entry) => String(entry?.username || '') === normalizedUsername
+      ).length;
+    }
+  });
+
+  return {
+    currentlyBorrowedCount,
+    totalBorrowedCount,
+  };
+}
+
+function toManageableUserView(user, books = null) {
+  const normalized = normalizeUserRecord(user);
+  if (!normalized) {
+    return null;
+  }
+
+  const activity = buildUserActivityMetrics(normalized.username, books);
+  return {
+    id: normalized.username,
+    username: normalized.username,
+    name: normalized.fullName,
+    fullName: normalized.fullName,
+    role: normalized.role,
+    status: normalized.status,
+    employeeId: normalized.employeeId || '',
+    bio: normalized.bio || '',
+    activity: {
+      lastLoginAt: normalized.lastLoginAt || null,
+      borrowedBooksCount: activity.currentlyBorrowedCount,
+      totalBorrowedCount: activity.totalBorrowedCount,
+    },
+  };
+}
+
 function getBookDueTime(book) {
   if (book?.dueAt) {
     const dueAtMs = new Date(book.dueAt).getTime();
@@ -297,6 +471,7 @@ function sweepExpiredBorrows(books) {
     if (dueTime !== null && dueTime <= now) {
       const previousBorrower = book.borrowedBy;
       const previousTitle = book.title;
+      trackBorrowedBooksEvent(book, previousBorrower, 'returned');
       releaseBorrowedBook(book);
       changed = true;
 
@@ -389,11 +564,22 @@ app.post('/api/register', (req, res) => {
 
 app.post('/api/login', (req, res) => {
   const { username, password, role } = req.body;
-  const users = readUsers();
+  const users = readUsers().map(normalizeUserRecord).filter(Boolean);
   const user = users.find(u => u.username === username && u.password === password && u.role === role);
   if (!user) {
     return res.status(401).json({ error: 'Invalid credentials.' });
   }
+
+  if (user.status === 'deactivated') {
+    return res.status(403).json({ error: 'Account is deactivated. Please contact a librarian.' });
+  }
+
+  const userIndex = users.findIndex((entry) => entry.username === user.username && entry.role === user.role);
+  if (userIndex !== -1) {
+    users[userIndex].lastLoginAt = new Date().toISOString();
+    writeUsers(users);
+  }
+
   res.json({ message: 'Login successful!', user });
 });
 
@@ -529,6 +715,7 @@ app.post('/api/borrow', (req, res) => {
       borrowedAt: book.borrowedAt,
       dueDate: book.dueDate,
     });
+    trackBorrowedBooksEvent(book, username, 'borrowed');
   }
 
   writeBooks(books);
@@ -585,8 +772,13 @@ app.post('/api/return', (req, res) => {
   }
 
   const returnedTitle = book.title;
+  const returnedBy = book.borrowedBy;
   releaseBorrowedBook(book);
   writeBooks(books);
+
+  if (returnedBy) {
+    trackBorrowedBooksEvent({ ...book, title: returnedTitle }, returnedBy, 'returned');
+  }
 
   addNotificationForUser(username, 'dueReminders', `Return complete: "${returnedTitle}" was returned successfully.`);
   res.json({ message: 'Book returned successfully.', book });
@@ -737,6 +929,18 @@ app.delete('/api/books/:id', (req, res) => {
   }
 
   res.json({ message: 'Book deleted successfully.' });
+});
+
+app.get('/api/borrowed-books', (req, res) => {
+  try {
+    const books = readBooks();
+    sweepExpiredBorrows(books);
+    const records = getAllBorrowedBooksRecords();
+    res.json({ records });
+  } catch (error) {
+    console.error('Error fetching borrowed books records:', error);
+    res.status(500).json({ error: 'Failed to fetch borrowed books records.' });
+  }
 });
 
 // Author helper to handle book publishing with file upload
@@ -1376,7 +1580,23 @@ app.delete('/api/published-books/:username/:bookId', (req, res) => {
 // Fetch all users
 app.get('/users', (req, res) => {
   try {
-    const users = readUsers();
+    const books = readBooks();
+    const users = readUsers()
+      .map((user) => toManageableUserView(user, books))
+      .filter(Boolean);
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+app.get('/api/users', (req, res) => {
+  try {
+    const books = readBooks();
+    const users = readUsers()
+      .map((user) => toManageableUserView(user, books))
+      .filter(Boolean);
     res.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -1385,45 +1605,152 @@ app.get('/users', (req, res) => {
 });
 
 // Update user details
-app.put('/users/:id', (req, res) => {
-  const users = require('./users.json');
-  const userId = req.params.id;
-  const updatedUser = req.body;
+function updateUserDetails(req, res) {
+  try {
+    const userId = req.params.id;
+    const { fullName, role, status, employeeId, bio } = req.body || {};
 
-  const userIndex = users.findIndex((user) => user.id === userId);
-  if (userIndex === -1) {
-    return res.status(404).json({ error: 'User not found' });
+    const users = readUsers().map(normalizeUserRecord).filter(Boolean);
+    const userIndex = users.findIndex((user) => String(user.username) === String(userId));
+    if (userIndex === -1) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const nextFullName = typeof fullName === 'string' ? fullName.trim() : users[userIndex].fullName;
+    const nextRole = typeof role === 'string' ? role.toLowerCase().trim() : users[userIndex].role;
+    const nextStatus = typeof status === 'string' ? status.toLowerCase().trim() : users[userIndex].status;
+
+    if (!nextFullName) {
+      return res.status(400).json({ error: 'Full name is required.' });
+    }
+    if (!VALID_USER_ROLES.includes(nextRole)) {
+      return res.status(400).json({ error: 'Invalid role.' });
+    }
+    if (!VALID_USER_STATUSES.includes(nextStatus)) {
+      return res.status(400).json({ error: 'Invalid status.' });
+    }
+
+    users[userIndex].fullName = nextFullName;
+    users[userIndex].role = nextRole;
+    users[userIndex].status = nextStatus;
+    if (typeof employeeId === 'string') {
+      users[userIndex].employeeId = employeeId.trim();
+    }
+    if (typeof bio === 'string') {
+      users[userIndex].bio = bio.trim();
+    }
+
+    writeUsers(users);
+    const books = readBooks();
+    const userView = toManageableUserView(users[userIndex], books);
+    res.json(userView);
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Failed to update user' });
   }
+}
 
-  users[userIndex] = { ...users[userIndex], ...updatedUser };
-  fs.writeFileSync('./users.json', JSON.stringify(users, null, 2));
-  res.json(users[userIndex]);
-});
+app.put('/users/:id', updateUserDetails);
+app.put('/api/users/:id', updateUserDetails);
 
 // Change user status
-app.patch('/users/:id/status', (req, res) => {
-  const users = require('./users.json');
-  const userId = req.params.id;
-  const { status } = req.body;
-
-  const userIndex = users.findIndex((user) => user.id === userId);
-  if (userIndex === -1) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-
-  users[userIndex].status = status;
-  fs.writeFileSync('./users.json', JSON.stringify(users, null, 2));
-  res.json(users[userIndex]);
-});
-
-// API endpoint to fetch users
-app.get('/api/users', (req, res) => {
+function updateUserStatus(req, res) {
   try {
-    const users = readUsers();
-    res.json(users);
+    const userId = req.params.id;
+    const { status } = req.body || {};
+    const nextStatus = typeof status === 'string' ? status.toLowerCase().trim() : '';
+
+    if (!VALID_USER_STATUSES.includes(nextStatus)) {
+      return res.status(400).json({ error: 'Invalid status.' });
+    }
+
+    const users = readUsers().map(normalizeUserRecord).filter(Boolean);
+    const userIndex = users.findIndex((user) => String(user.username) === String(userId));
+    if (userIndex === -1) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    users[userIndex].status = nextStatus;
+    writeUsers(users);
+
+    const books = readBooks();
+    const userView = toManageableUserView(users[userIndex], books);
+    res.json(userView);
   } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ error: 'Failed to fetch users' });
+    console.error('Error updating user status:', error);
+    res.status(500).json({ error: 'Failed to update user status' });
+  }
+}
+
+app.patch('/users/:id/status', updateUserStatus);
+app.patch('/api/users/:id/status', updateUserStatus);
+
+app.patch('/api/users/bulk', (req, res) => {
+  try {
+    const { userIds, action, updates } = req.body || {};
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: 'At least one userId is required.' });
+    }
+
+    const users = readUsers().map(normalizeUserRecord).filter(Boolean);
+    const userSet = new Set(userIds.map((id) => String(id)));
+    let changedCount = 0;
+
+    users.forEach((user) => {
+      if (!userSet.has(String(user.username))) {
+        return;
+      }
+
+      if (action === 'deactivate') {
+        if (user.status !== 'deactivated') {
+          user.status = 'deactivated';
+          changedCount += 1;
+        }
+        return;
+      }
+
+      if (action === 'reactivate') {
+        if (user.status !== 'active') {
+          user.status = 'active';
+          changedCount += 1;
+        }
+        return;
+      }
+
+      if (action === 'update-role') {
+        const targetRole = String(updates?.role || '').toLowerCase().trim();
+        if (!VALID_USER_ROLES.includes(targetRole)) {
+          return;
+        }
+        if (user.role !== targetRole) {
+          user.role = targetRole;
+          changedCount += 1;
+        }
+      }
+    });
+
+    if (!['deactivate', 'reactivate', 'update-role'].includes(action)) {
+      return res.status(400).json({ error: 'Invalid bulk action.' });
+    }
+
+    if (action === 'update-role') {
+      const targetRole = String(updates?.role || '').toLowerCase().trim();
+      if (!VALID_USER_ROLES.includes(targetRole)) {
+        return res.status(400).json({ error: 'Invalid role for bulk update.' });
+      }
+    }
+
+    writeUsers(users);
+    const books = readBooks();
+    const updatedUsers = users
+      .filter((user) => userSet.has(String(user.username)))
+      .map((user) => toManageableUserView(user, books))
+      .filter(Boolean);
+
+    res.json({ changedCount, users: updatedUsers });
+  } catch (error) {
+    console.error('Error applying bulk user action:', error);
+    res.status(500).json({ error: 'Failed to apply bulk user action.' });
   }
 });
 

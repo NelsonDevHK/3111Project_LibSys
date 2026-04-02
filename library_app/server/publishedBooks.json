@@ -5,7 +5,7 @@
       "title": "asdf",
       "genre": "Fiction",
       "description": "adsfa",
-      "status": "pending",
+      "status": "approved",
       "borrowed": false,
       "filePath": "bookAssets/1775063820975.pdf",
       "coverPath": "",

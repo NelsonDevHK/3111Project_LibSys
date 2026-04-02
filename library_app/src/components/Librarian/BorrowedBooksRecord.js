@@ -5,12 +5,30 @@ const BorrowedBooksRecord = () => {
   const [records, setRecords] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:4000/borrowed-books")
-      .then((response) => response.json())
-      .then((data) => setRecords(data))
-      .catch((error) => console.error("Error fetching borrowed books records:", error));
+    setLoading(true);
+    setError('');
+
+    fetch('http://localhost:4000/api/borrowed-books')
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to fetch borrowed books records');
+        }
+
+        return response.json();
+      })
+      .then((data) => {
+        const fetchedRecords = Array.isArray(data?.records) ? data.records : [];
+        setRecords(fetchedRecords);
+      })
+      .catch((fetchError) => {
+        console.error('Error fetching borrowed books records:', fetchError);
+        setError('Unable to load borrowed books records.');
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const handleSearch = (event) => {
@@ -23,11 +41,12 @@ const BorrowedBooksRecord = () => {
 
   const filteredRecords = records.filter((record) => {
     const matchesSearch =
-      record.bookTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.borrowerUsername.toLowerCase().includes(searchTerm.toLowerCase());
+      String(record.bookTitle || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(record.borrowerUsername || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
-      filterStatus === "all" || record.status.toLowerCase() === filterStatus.toLowerCase();
+      filterStatus === "all" ||
+      String(record.status || '').toLowerCase() === filterStatus.toLowerCase();
 
     return matchesSearch && matchesStatus;
   });
@@ -35,6 +54,7 @@ const BorrowedBooksRecord = () => {
   return (
     <div className="borrowed-books-record">
       <h1>Borrowed Books Record</h1>
+      {error && <p className="error">{error}</p>}
       <div className="filters">
         <input
           type="text"
@@ -49,6 +69,7 @@ const BorrowedBooksRecord = () => {
           <option value="overdue">Overdue</option>
         </select>
       </div>
+      {loading && <p>Loading borrowed books records...</p>}
       <table>
         <thead>
           <tr>
@@ -65,10 +86,15 @@ const BorrowedBooksRecord = () => {
               <td>{record.bookTitle}</td>
               <td>{record.borrowerUsername}</td>
               <td>{record.borrowDate}</td>
-              <td>{record.returnDate}</td>
+              <td>{record.returnDate || '-'}</td>
               <td>{record.status}</td>
             </tr>
           ))}
+          {!loading && filteredRecords.length === 0 && (
+            <tr>
+              <td colSpan="5">No borrowed books records match your filters.</td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

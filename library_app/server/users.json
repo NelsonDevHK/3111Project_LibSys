@@ -4,34 +4,44 @@
       "username": "s1",
       "fullName": "Student One",
       "password": "1",
-      "role": "student"
+      "role": "student",
+      "status": "active",
+      "lastLoginAt": ""
     },
     {
       "username": "staff1",
       "fullName": "Staff One",
       "password": "1",
-      "role": "staff"
+      "role": "staff",
+      "status": "active",
+      "lastLoginAt": ""
     },
     {
       "username": "author1",
       "fullName": "Author One",
       "password": "1",
       "role": "author",
-      "bio": "Test author bio 2"
+      "bio": "Test author bio 2",
+      "status": "active",
+      "lastLoginAt": ""
     },
     {
       "username": "librarian1",
       "fullName": "Librarian One",
       "password": "1",
       "role": "librarian",
-      "employeeId": "LIB001"
+      "employeeId": "LIB001",
+      "status": "active",
+      "lastLoginAt": "2026-04-02T09:12:59.116Z"
     },
     {
       "username": "l2",
       "fullName": "Librarian Two",
       "password": "2",
       "role": "librarian",
-      "employeeId": "LIB002"
+      "employeeId": "LIB002",
+      "status": "active",
+      "lastLoginAt": "2026-04-02T09:12:19.952Z"
     }
   ]
 }

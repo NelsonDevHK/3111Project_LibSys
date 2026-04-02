@@ -1,3 +1,17 @@
 {
-  "books": []
+  "books": [
+    {
+      "id": 1775063820981,
+      "title": "asdf",
+      "authorUsername": "author1",
+      "authorFullName": "Author One",
+      "genre": "Fiction",
+      "description": "adsfa",
+      "filePath": "bookAssets/1775063820975.pdf",
+      "coverPath": "",
+      "publishDate": "2026-04-01",
+      "approved": true,
+      "status": "available"
+    }
+  ]
 }

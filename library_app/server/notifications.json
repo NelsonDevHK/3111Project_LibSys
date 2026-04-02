@@ -7,6 +7,14 @@
     "other": [],
     "bookApprovalUpdates": [
       {
+        "id": "2cd18fcc-46cf-4e77-a806-2002ce7496f1",
+        "category": "bookApprovalUpdates",
+        "message": "Book approved: \"asdf\" has been approved and published.",
+        "timestamp": "2026-04-02T09:13:57.843Z",
+        "unread": true,
+        "archived": false
+      },
+      {
         "id": "0bc55ce9-1cbf-444f-b384-68d4df49b4db",
         "category": "bookApprovalUpdates",
         "message": "Book approved: \"New Book 1\" has been approved and published.",
