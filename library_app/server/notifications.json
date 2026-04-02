@@ -84,5 +84,15 @@
     "other": [],
     "bookApprovalUpdates": [],
     "bookRejectionUpdates": []
+  },
+  "l2": {
+    "bookApprovalUpdates": [],
+    "bookRejectionUpdates": [],
+    "bookUpdates": [],
+    "newSubmissions": [],
+    "accountUpdates": [],
+    "dueReminders": [],
+    "bookDeletionNotices": [],
+    "other": []
   }
 }
