@@ -116,26 +116,20 @@ function NotificationBoard({ currentUser }) {
 		return 'low';
 	};
 
-	const filteredNotifications = useMemo(() => {
-		if (!categories || Object.keys(categories).length === 0) {
-			return visibleCategoryKeys.flatMap((category) => categories[category] || []);
-		}
-		return visibleCategoryKeys.flatMap((category) => {
-			const items = (categories[category] || []).filter((item) => {
-				const matchesSearch = normalizedSearch
-					? renderMessage(item).toLowerCase().includes(normalizedSearch)
-					: true;
-				const matchesDate = filterDate
-					? new Date(item.timestamp).toLocaleDateString() === new Date(filterDate).toLocaleDateString()
-					: true;
-				const urgency = calculateUrgency(item.timestamp);
-				const matchesUrgency =
-					filterUrgency === 'all' || urgency === filterUrgency;
-				return matchesSearch && matchesDate && matchesUrgency;
-			});
-			return items;
-		});
-	}, [categories, visibleCategoryKeys, normalizedSearch, filterDate, filterUrgency]);
+	const matchesFilters = useCallback(
+		(item) => {
+			const matchesSearch = normalizedSearch
+				? renderMessage(item).toLowerCase().includes(normalizedSearch)
+				: true;
+			const matchesDate = filterDate
+				? new Date(item.timestamp).toLocaleDateString() === new Date(filterDate).toLocaleDateString()
+				: true;
+			const urgency = calculateUrgency(item.timestamp);
+			const matchesUrgency = filterUrgency === 'all' || urgency === filterUrgency;
+			return matchesSearch && matchesDate && matchesUrgency;
+		},
+		[normalizedSearch, filterDate, filterUrgency]
+	);
 
 	return (
 		<section className="notification-board">
@@ -184,29 +178,92 @@ function NotificationBoard({ currentUser }) {
 				</label>
 			</div>
 
-			{filteredNotifications.map((item) => (
-				<div key={item.id} className={`notification-item ${item.unread ? 'unread' : 'read'}`}>
-					{/* Render notification details */}
-					<p>{renderMessage(item)}</p>
-					<p className="notification-time">{new Date(item.timestamp).toLocaleString()}</p>
-					<div className="notification-actions">
-						{item.unread && (
-							<button type="button" onClick={() => updateNotification(item.category, item.id, 'read')}>
-								Mark as Read
-							</button>
+			{visibleCategoryKeys.map((category) => {
+				const items = (categories[category] || [])
+					.filter(matchesFilters)
+					.sort((a, b) => {
+						const aTime = new Date(a.timestamp || 0).getTime();
+						const bTime = new Date(b.timestamp || 0).getTime();
+						return bTime - aTime;
+					});
+
+				const activeItems = items.filter((item) => !item.archived);
+				const archivedItems = items.filter((item) => item.archived);
+				const shouldShowSection = activeItems.length > 0 || (showArchived && archivedItems.length > 0);
+
+				if (!shouldShowSection) {
+					return null;
+				}
+
+				return (
+					<div key={category} className="notification-category-section">
+						<h4>{CATEGORY_LABELS[category] || category}</h4>
+						<div className="notification-list">
+							{activeItems.length === 0 && <p className="notification-empty">No active notifications.</p>}
+							{activeItems.map((item) => (
+								<div key={item.id} className={`notification-item ${item.unread ? 'unread' : 'read'}`}>
+									<div className="notification-item-copy">
+										<p>{renderMessage(item)}</p>
+										<p className="notification-time">{new Date(item.timestamp).toLocaleString()}</p>
+									</div>
+									<div className="notification-actions">
+										{item.unread && (
+											<button type="button" onClick={() => updateNotification(category, item.id, 'read')}>
+												Mark as Read
+											</button>
+										)}
+										<button type="button" onClick={() => updateNotification(category, item.id, 'archive')}>
+											Archive
+										</button>
+										<button type="button" onClick={() => deleteNotification(category, item.id)}>
+											Delete
+										</button>
+									</div>
+								</div>
+							))}
+						</div>
+
+						{showArchived && (
+							<div className="notification-archived-section">
+								<h5>Archived</h5>
+								<div className="notification-list">
+									{archivedItems.length === 0 && <p className="notification-empty">No archived notifications.</p>}
+									{archivedItems.map((item) => (
+										<div key={item.id} className={`notification-item ${item.unread ? 'unread' : 'read'}`}>
+											<div className="notification-item-copy">
+												<p>{renderMessage(item)}</p>
+												<p className="notification-time">{new Date(item.timestamp).toLocaleString()}</p>
+											</div>
+											<div className="notification-actions">
+												{item.unread && (
+													<button type="button" onClick={() => updateNotification(category, item.id, 'read')}>
+														Mark as Read
+													</button>
+												)}
+												<button type="button" onClick={() => updateNotification(category, item.id, 'unarchive')}>
+													Unarchive
+												</button>
+												<button type="button" onClick={() => deleteNotification(category, item.id)}>
+													Delete
+												</button>
+											</div>
+										</div>
+									))}
+								</div>
+							</div>
 						)}
-						<button
-							type="button"
-							onClick={() => updateNotification(item.category, item.id, item.archived ? 'unarchive' : 'archive')}
-						>
-							{item.archived ? 'Unarchive' : 'Archive'}
-						</button>
-						<button type="button" onClick={() => deleteNotification(item.category, item.id)}>
-							Delete
-						</button>
 					</div>
-				</div>
-			))}
+				);
+			})}
+
+			{visibleCategoryKeys.every((category) => {
+				const items = (categories[category] || []).filter(matchesFilters);
+				const activeItems = items.filter((item) => !item.archived);
+				const archivedItems = items.filter((item) => item.archived);
+				return !(activeItems.length > 0 || (showArchived && archivedItems.length > 0));
+			}) && <p>No notifications available.</p>}
+
+			{feedbackMessage && <p className={feedbackType === 'error' ? 'error' : 'info'}>{feedbackMessage}</p>}
 		</section>
 	);
 }
