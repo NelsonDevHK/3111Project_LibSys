@@ -226,6 +226,25 @@ button[type="submit"]:hover {
   margin-top: 8px;
 }
 
+.reading-history-screen {
+  margin-top: 8px;
+}
+
+.history-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  align-items: end;
+}
+
+.history-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+}
+
 .borrowed-books-screen table td:first-child {
   color: #ffb86c;
   font-weight: 600;

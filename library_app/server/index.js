@@ -12,6 +12,7 @@ const BORROWED_BOOKS_FILE = path.join(__dirname, 'borrowedBooks.json');
 const REJECTION_REASONS_FILE = path.join(__dirname, 'rejectionReason.json');
 const NOTIFICATIONS_FILE = path.join(__dirname, 'notifications.json');
 const PUBLISHED_BOOKS_FILE = path.join(__dirname, 'publishedBooks.json');
+const READING_HISTORY_FILE = path.join(__dirname, 'readingHistory.json');
 
 // Ignore already taken care
 const app = express();
@@ -471,6 +472,8 @@ function sweepExpiredBorrows(books) {
     if (dueTime !== null && dueTime <= now) {
       const previousBorrower = book.borrowedBy;
       const previousTitle = book.title;
+      const returnDateIso = new Date().toISOString();
+      trackBookReturnHistory(previousBorrower, book, returnDateIso);
       trackBorrowedBooksEvent(book, previousBorrower, 'returned');
       releaseBorrowedBook(book);
       changed = true;
@@ -536,6 +539,149 @@ function updatePublishedBookBorrowedState(bookId, borrowed) {
   if (updated) {
     writePublishedBooks(publishedBooks);
   }
+}
+
+// Reading history helpers
+function readReadingHistory() {
+  if (!fs.existsSync(READING_HISTORY_FILE)) {
+    return {};
+  }
+
+  try {
+    const data = fs.readFileSync(READING_HISTORY_FILE, 'utf-8');
+    const parsed = data ? JSON.parse(data) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (err) {
+    console.error('Error reading readingHistory.json:', err);
+    return {};
+  }
+}
+
+function writeReadingHistory(readingHistory) {
+  fs.writeFileSync(READING_HISTORY_FILE, JSON.stringify(readingHistory, null, 2));
+}
+
+function ensureUserReadingHistory(readingHistory, username) {
+  if (!Array.isArray(readingHistory[username])) {
+    readingHistory[username] = [];
+  }
+  return readingHistory[username];
+}
+
+function getActiveReadingHistoryEntry(entries, bookId) {
+  return entries.find((entry) => String(entry?.bookId) === String(bookId) && !entry?.returnDate);
+}
+
+function trackBookBorrowHistory(username, book) {
+  if (!username || !book) return;
+
+  const readingHistory = readReadingHistory();
+  const userHistory = ensureUserReadingHistory(readingHistory, username);
+  const nowIso = new Date().toISOString();
+  const activeEntry = getActiveReadingHistoryEntry(userHistory, book.id);
+
+  if (activeEntry) {
+    activeEntry.borrowDate = book.borrowedAt || activeEntry.borrowDate || nowIso;
+    activeEntry.dueDate = book.dueAt || activeEntry.dueDate || null;
+    activeEntry.bookTitle = book.title || activeEntry.bookTitle || 'Untitled Book';
+    activeEntry.author = book.authorFullName || activeEntry.author || 'Unknown';
+    activeEntry.genre = book.genre || activeEntry.genre || 'Unknown';
+    activeEntry.status = 'borrowed';
+  } else {
+    userHistory.unshift({
+      id: randomUUID(),
+      bookId: book.id,
+      bookTitle: book.title || 'Untitled Book',
+      author: book.authorFullName || 'Unknown',
+      genre: book.genre || 'Unknown',
+      borrowDate: book.borrowedAt || nowIso,
+      dueDate: book.dueAt || null,
+      returnDate: null,
+      status: 'borrowed',
+      readingDurationMinutes: 0,
+      progress: {
+        bookmarkPage: 1,
+        highlightsCount: 0,
+        lastReadAt: null,
+      },
+    });
+  }
+
+  writeReadingHistory(readingHistory);
+}
+
+function trackBookReturnHistory(username, book, returnDateIso = new Date().toISOString()) {
+  if (!username || !book) return;
+
+  const readingHistory = readReadingHistory();
+  const userHistory = ensureUserReadingHistory(readingHistory, username);
+  const activeEntry = getActiveReadingHistoryEntry(userHistory, book.id);
+
+  if (!activeEntry) {
+    return;
+  }
+
+  activeEntry.returnDate = returnDateIso;
+  activeEntry.status = 'returned';
+
+  const startMs = new Date(activeEntry.borrowDate || book.borrowedAt || returnDateIso).getTime();
+  const endMs = new Date(returnDateIso).getTime();
+  if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs >= startMs) {
+    activeEntry.readingDurationMinutes = Math.max(1, Math.round((endMs - startMs) / 60000));
+  }
+
+  writeReadingHistory(readingHistory);
+}
+
+function trackReadingProgressHistory(username, book, updates = {}) {
+  if (!username || !book) return;
+
+  const readingHistory = readReadingHistory();
+  const userHistory = ensureUserReadingHistory(readingHistory, username);
+  let activeEntry = getActiveReadingHistoryEntry(userHistory, book.id);
+
+  if (!activeEntry) {
+    activeEntry = {
+      id: randomUUID(),
+      bookId: book.id,
+      bookTitle: book.title || 'Untitled Book',
+      author: book.authorFullName || 'Unknown',
+      genre: book.genre || 'Unknown',
+      borrowDate: book.borrowedAt || new Date().toISOString(),
+      dueDate: book.dueAt || null,
+      returnDate: null,
+      status: 'borrowed',
+      readingDurationMinutes: 0,
+      progress: {
+        bookmarkPage: 1,
+        highlightsCount: 0,
+        lastReadAt: null,
+      },
+    };
+    userHistory.unshift(activeEntry);
+  }
+
+  if (!activeEntry.progress || typeof activeEntry.progress !== 'object') {
+    activeEntry.progress = {
+      bookmarkPage: 1,
+      highlightsCount: 0,
+      lastReadAt: null,
+    };
+  }
+
+  if (Number.isFinite(Number(updates.bookmarkPage))) {
+    activeEntry.progress.bookmarkPage = Math.max(1, Math.floor(Number(updates.bookmarkPage)));
+  }
+  if (Number.isFinite(Number(updates.highlightsCount))) {
+    activeEntry.progress.highlightsCount = Math.max(0, Math.floor(Number(updates.highlightsCount)));
+  }
+
+  activeEntry.progress.lastReadAt = updates.lastReadAt || new Date().toISOString();
+  activeEntry.bookTitle = book.title || activeEntry.bookTitle;
+  activeEntry.author = book.authorFullName || activeEntry.author;
+  activeEntry.genre = book.genre || activeEntry.genre;
+
+  writeReadingHistory(readingHistory);
 }
 
 // Ignore already taken care
@@ -721,6 +867,7 @@ app.post('/api/borrow', (req, res) => {
   writeBooks(books);
   updatePublishedBookBorrowedState(book.id, true);
   if (username) {
+    trackBookBorrowHistory(username, book);
     addNotificationForUser(username, 'dueReminders', `Due reminder: "${book.title}" is due on ${book.dueDate}.`);
   }
 
@@ -773,6 +920,8 @@ app.post('/api/return', (req, res) => {
 
   const returnedTitle = book.title;
   const returnedBy = book.borrowedBy;
+  const returnDateIso = new Date().toISOString();
+  trackBookReturnHistory(returnedBy, book, returnDateIso);
   releaseBorrowedBook(book);
   writeBooks(books);
 
@@ -831,6 +980,12 @@ app.post('/api/reading-progress', (req, res) => {
   book.readingData[username].bookmarkPage = page;
   book.readingData[username].updatedAt = new Date().toISOString();
 
+  trackReadingProgressHistory(username, book, {
+    bookmarkPage: page,
+    highlightsCount: book.readingData[username].highlights.length,
+    lastReadAt: book.readingData[username].updatedAt,
+  });
+
   writeBooks(books);
   res.json({ message: 'Reading progress saved.', readingProgress: book.readingData[username] });
 });
@@ -877,9 +1032,51 @@ app.post('/api/highlights', (req, res) => {
   };
 
   book.readingData[username].highlights.unshift(highlight);
+
+  trackReadingProgressHistory(username, book, {
+    bookmarkPage: book.readingData[username].bookmarkPage,
+    highlightsCount: book.readingData[username].highlights.length,
+    lastReadAt: new Date().toISOString(),
+  });
+
   writeBooks(books);
 
   res.json({ message: 'Highlight saved.', highlight });
+});
+
+app.get('/api/reading-history/:username', (req, res) => {
+  const { username } = req.params;
+  if (!username) {
+    return res.status(400).json({ error: 'Missing username.' });
+  }
+
+  const readingHistory = readReadingHistory();
+  const userHistory = ensureUserReadingHistory(readingHistory, username);
+
+  const history = userHistory
+    .map((entry) => {
+      const borrowDate = entry.borrowDate || null;
+      const returnDate = entry.returnDate || null;
+      const startMs = borrowDate ? new Date(borrowDate).getTime() : NaN;
+      const endMs = returnDate ? new Date(returnDate).getTime() : Date.now();
+
+      let computedDurationMinutes = Number(entry.readingDurationMinutes) || 0;
+      if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs >= startMs) {
+        computedDurationMinutes = Math.max(1, Math.round((endMs - startMs) / 60000));
+      }
+
+      return {
+        ...entry,
+        readingDurationMinutes: computedDurationMinutes,
+      };
+    })
+    .sort((a, b) => {
+      const aTime = new Date(a.borrowDate || 0).getTime();
+      const bTime = new Date(b.borrowDate || 0).getTime();
+      return bTime - aTime;
+    });
+
+  res.json({ history });
 });
 
 app.delete('/api/highlights/:username/:bookId/:highlightId', (req, res) => {
