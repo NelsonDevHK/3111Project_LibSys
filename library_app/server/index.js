@@ -13,6 +13,7 @@ const REJECTION_REASONS_FILE = path.join(__dirname, 'rejectionReason.json');
 const NOTIFICATIONS_FILE = path.join(__dirname, 'notifications.json');
 const PUBLISHED_BOOKS_FILE = path.join(__dirname, 'publishedBooks.json');
 const READING_HISTORY_FILE = path.join(__dirname, 'readingHistory.json');
+const BOOK_REVIEWS_FILE = path.join(__dirname, 'bookReviews.json');
 
 // Ignore already taken care
 const app = express();
@@ -682,6 +683,89 @@ function trackReadingProgressHistory(username, book, updates = {}) {
   activeEntry.genre = book.genre || activeEntry.genre;
 
   writeReadingHistory(readingHistory);
+}
+
+// Book reviews helpers
+function readBookReviews() {
+  if (!fs.existsSync(BOOK_REVIEWS_FILE)) {
+    return {};
+  }
+
+  try {
+    const data = fs.readFileSync(BOOK_REVIEWS_FILE, 'utf-8');
+    const parsed = data ? JSON.parse(data) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (err) {
+    console.error('Error reading bookReviews.json:', err);
+    return {};
+  }
+}
+
+function writeBookReviews(bookReviews) {
+  fs.writeFileSync(BOOK_REVIEWS_FILE, JSON.stringify(bookReviews, null, 2));
+}
+
+function ensureBookReviews(bookReviews, bookId) {
+  const bookIdStr = String(bookId);
+  if (!Array.isArray(bookReviews[bookIdStr])) {
+    bookReviews[bookIdStr] = [];
+  }
+  return bookReviews[bookIdStr];
+}
+
+function submitReview(username, book, rating, reviewText) {
+  if (!username || !book || !rating) {
+    return null;
+  }
+
+  const bookReviews = readBookReviews();
+  const bookIdStr = String(book.id);
+  const reviews = ensureBookReviews(bookReviews, bookIdStr);
+
+  // Check if user already reviewed this book
+  const existingReviewIndex = reviews.findIndex(
+    (r) => String(r.username) === String(username)
+  );
+
+  const newReview = {
+    id: randomUUID(),
+    username,
+    userFullName: book.borrowedBy === username ? book.borrowedByFullName || username : username,
+    rating: Math.min(5, Math.max(1, Number(rating))),
+    reviewText: String(reviewText || '').trim(),
+    submittedAt: new Date().toISOString(),
+    helpful: 0,
+  };
+
+  if (existingReviewIndex !== -1) {
+    // Replace existing review
+    reviews[existingReviewIndex] = newReview;
+  } else {
+    // Add new review
+    reviews.unshift(newReview);
+  }
+
+  writeBookReviews(bookReviews);
+  return newReview;
+}
+
+function getReviewsForBook(bookId) {
+  const bookReviews = readBookReviews();
+  const bookIdStr = String(bookId);
+  return bookReviews[bookIdStr] || [];
+}
+
+function getAverageRating(bookId) {
+  const reviews = getReviewsForBook(bookId);
+  if (reviews.length === 0) {
+    return { average: 0, totalReviews: 0 };
+  }
+
+  const sum = reviews.reduce((acc, r) => acc + (Number(r.rating) || 0), 0);
+  return {
+    average: Number((sum / reviews.length).toFixed(1)),
+    totalReviews: reviews.length,
+  };
 }
 
 // Ignore already taken care
@@ -1949,6 +2033,61 @@ app.patch('/api/users/bulk', (req, res) => {
     console.error('Error applying bulk user action:', error);
     res.status(500).json({ error: 'Failed to apply bulk user action.' });
   }
+});
+
+// Book Reviews Endpoints
+app.post('/api/reviews', (req, res) => {
+  const { username, bookId, rating, reviewText } = req.body;
+
+  if (!username || !bookId || !rating) {
+    return res.status(400).json({ error: 'username, bookId, and rating are required.' });
+  }
+
+  const books = readBooks();
+  const numericBookId = Number(bookId);
+  const book = books.find((b) => b.id === numericBookId || String(b.id) === String(bookId));
+
+  if (!book) {
+    return res.status(404).json({ error: 'Book not found.' });
+  }
+
+  const review = submitReview(username, book, rating, reviewText);
+
+  // Send notification to all users (public notification)
+  addNotificationForUser(
+    username,
+    'other',
+    `Your review for "${book.title}" was submitted successfully.`
+  );
+
+  // Add a notification to librarians about the review
+  addNotificationForRole(
+    'librarian',
+    'other',
+    `New review submitted by ${username} for "${book.title}".`
+  );
+
+  res.json({ message: 'Review submitted successfully.', review });
+});
+
+app.get('/api/reviews/:bookId', (req, res) => {
+  const { bookId } = req.params;
+
+  const reviews = getReviewsForBook(bookId);
+  const ratingInfo = getAverageRating(bookId);
+
+  res.json({
+    reviews,
+    rating: ratingInfo.average,
+    totalReviews: ratingInfo.totalReviews,
+  });
+});
+
+app.get('/api/book/:bookId/rating', (req, res) => {
+  const { bookId } = req.params;
+
+  const ratingInfo = getAverageRating(bookId);
+  res.json(ratingInfo);
 });
 
 // Start the server

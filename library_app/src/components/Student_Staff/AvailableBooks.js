@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import ReviewsDisplay from './ReviewsDisplay';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -23,6 +24,7 @@ function AvailableBooks({ onBorrow, currentUser }) {
   const [previewPages, setPreviewPages] = useState(0);
   const [confirmBorrowPayload, setConfirmBorrowPayload] = useState(null);
   const [isSubmittingBorrow, setIsSubmittingBorrow] = useState(false);
+  const [showReviewsBook, setShowReviewsBook] = useState(null);
 
   const fetchBooks = () => {
     fetch('http://localhost:4000/api/books')
@@ -282,13 +284,22 @@ function AvailableBooks({ onBorrow, currentUser }) {
                 )}
               </td>
               <td data-label="Action">
-                {book.status === 'available' ? (
-                  <button type="button" onClick={() => handleBorrowSingle(book.id)}>
-                    Borrow
+                <div className="book-action-buttons">
+                  <button
+                    type="button"
+                    className="btn-reviews"
+                    onClick={() => setShowReviewsBook(book)}
+                  >
+                    Reviews
                   </button>
-                ) : (
-                  <span>Borrowed</span>
-                )}
+                  {book.status === 'available' ? (
+                    <button type="button" onClick={() => handleBorrowSingle(book.id)}>
+                      Borrow
+                    </button>
+                  ) : (
+                    <span>Borrowed</span>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
@@ -362,6 +373,26 @@ function AvailableBooks({ onBorrow, currentUser }) {
                 {isSubmittingBorrow ? 'Borrowing...' : 'Confirm Borrow'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reviews modal */}
+      {showReviewsBook && (
+        <div className="summary-modal">
+          <div className="summary-content reviews-modal-content">
+            <button
+              type="button"
+              className="modal-close-button"
+              onClick={() => setShowReviewsBook(null)}
+            >
+              Close
+            </button>
+            <ReviewsDisplay
+              book={showReviewsBook}
+              username={currentUser.username}
+              userRole={currentUser.role}
+            />
           </div>
         </div>
       )}
