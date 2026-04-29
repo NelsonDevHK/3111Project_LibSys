@@ -14,6 +14,7 @@ const NOTIFICATIONS_FILE = path.join(__dirname, 'notifications.json');
 const PUBLISHED_BOOKS_FILE = path.join(__dirname, 'publishedBooks.json');
 const READING_HISTORY_FILE = path.join(__dirname, 'readingHistory.json');
 const BOOK_REVIEWS_FILE = path.join(__dirname, 'bookReviews.json');
+const BOOK_REQUESTS_FILE = path.join(__dirname, 'bookRequests.json');
 
 // Ignore already taken care
 const app = express();
@@ -1245,6 +1246,41 @@ function writePendingBooks(pendingBooks) {
   fs.writeFileSync(path.join(__dirname, 'pendingBooks.json'), JSON.stringify({ pendingBooks }, null, 2));
 }
 
+function readBookRequests() {
+  if (!fs.existsSync(BOOK_REQUESTS_FILE)) {
+    return [];
+  }
+
+  try {
+    const data = fs.readFileSync(BOOK_REQUESTS_FILE, 'utf-8');
+    if (!data) {
+      return [];
+    }
+
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+
+    if (Array.isArray(parsed?.bookRequests)) {
+      return parsed.bookRequests;
+    }
+
+    return [];
+  } catch (err) {
+    console.error('Error reading bookRequests.json:', err);
+    return [];
+  }
+}
+
+function writeBookRequests(bookRequests) {
+  fs.writeFileSync(BOOK_REQUESTS_FILE, JSON.stringify({ bookRequests }, null, 2));
+}
+
+function findBookRequestIndex(bookRequests, requestId) {
+  return bookRequests.findIndex((request) => String(request?.id) === String(requestId));
+}
+
 function readRejectionReasons() {
   if (!fs.existsSync(REJECTION_REASONS_FILE)) {
     return {};
@@ -1460,6 +1496,182 @@ app.post('/api/publish',
   } catch (err) {
     console.error('publish error:', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/book-requests', (req, res) => {
+  try {
+    const { title, author, genre, reason, requestedBy, requestedByRole } = req.body || {};
+
+    if (!title || !author || !genre || !reason || !requestedBy || !requestedByRole) {
+      return res.status(400).json({
+        error: 'title, author, genre, reason, requestedBy, and requestedByRole are required.',
+      });
+    }
+
+    const normalizedRole = String(requestedByRole).toLowerCase();
+    if (!['student', 'staff'].includes(normalizedRole)) {
+      return res.status(403).json({ error: 'Only students and staff can submit book requests.' });
+    }
+
+    const requestEntry = {
+      id: randomUUID(),
+      title: String(title).trim(),
+      author: String(author).trim(),
+      genre: String(genre).trim(),
+      reason: String(reason).trim(),
+      requestedBy: String(requestedBy).trim(),
+      requestedByRole: normalizedRole,
+      status: 'pending',
+      submittedAt: new Date().toISOString(),
+      reviewedAt: null,
+      reviewedBy: null,
+      rejectionReason: '',
+      uploadedAt: null,
+      uploadedBookId: null,
+    };
+
+    if (!requestEntry.title || !requestEntry.author || !requestEntry.genre || !requestEntry.reason) {
+      return res.status(400).json({ error: 'All fields must be non-empty.' });
+    }
+
+    const bookRequests = readBookRequests();
+    bookRequests.unshift(requestEntry);
+    writeBookRequests(bookRequests);
+
+    addNotificationForRole(
+      'librarian',
+      'newSubmissions',
+      `New book request: "${requestEntry.title}" requested by ${requestEntry.requestedBy}.`
+    );
+
+    res.status(201).json({ message: 'Book request submitted successfully.', request: requestEntry });
+  } catch (err) {
+    console.error('Error creating book request:', err);
+    res.status(500).json({ error: 'Failed to submit book request.' });
+  }
+});
+
+app.get('/api/book-requests', (req, res) => {
+  try {
+    const { requestedBy, status } = req.query;
+    let bookRequests = readBookRequests();
+
+    if (requestedBy) {
+      bookRequests = bookRequests.filter(
+        (request) => String(request?.requestedBy) === String(requestedBy)
+      );
+    }
+
+    if (status) {
+      const normalizedStatus = String(status).toLowerCase();
+      bookRequests = bookRequests.filter(
+        (request) => String(request?.status || '').toLowerCase() === normalizedStatus
+      );
+    }
+
+    res.json({ bookRequests });
+  } catch (err) {
+    console.error('Error fetching book requests:', err);
+    res.status(500).json({ error: 'Failed to fetch book requests.' });
+  }
+});
+
+app.post('/api/book-requests/:id/review', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isApproved, librarianUsername, rejectionReason } = req.body || {};
+    const bookRequests = readBookRequests();
+    const requestIndex = findBookRequestIndex(bookRequests, id);
+
+    if (requestIndex === -1) {
+      return res.status(404).json({ error: 'Book request not found.' });
+    }
+
+    const requestEntry = bookRequests[requestIndex];
+    const nextStatus = isApproved ? 'approved' : 'rejected';
+
+    if (!isApproved && !String(rejectionReason || '').trim()) {
+      return res.status(400).json({ error: 'rejectionReason is required when rejecting.' });
+    }
+
+    requestEntry.status = nextStatus;
+    requestEntry.reviewedAt = new Date().toISOString();
+    requestEntry.reviewedBy = librarianUsername ? String(librarianUsername) : 'librarian';
+    requestEntry.rejectionReason = isApproved ? '' : String(rejectionReason).trim();
+    bookRequests[requestIndex] = requestEntry;
+    writeBookRequests(bookRequests);
+
+    if (!isApproved) {
+      addNotificationForUser(
+        requestEntry.requestedBy,
+        'other',
+        `Book request rejected: "${requestEntry.title}" was rejected. Reason: ${requestEntry.rejectionReason}`
+      );
+    }
+
+    res.json({
+      message: `Book request ${isApproved ? 'approved' : 'rejected'} successfully.`,
+      request: requestEntry,
+    });
+  } catch (err) {
+    console.error('Error reviewing book request:', err);
+    res.status(500).json({ error: 'Failed to review book request.' });
+  }
+});
+
+app.post('/api/book-requests/:id/upload', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { librarianUsername, description } = req.body || {};
+
+    const bookRequests = readBookRequests();
+    const requestIndex = findBookRequestIndex(bookRequests, id);
+    if (requestIndex === -1) {
+      return res.status(404).json({ error: 'Book request not found.' });
+    }
+
+    const requestEntry = bookRequests[requestIndex];
+    if (!['approved', 'pending'].includes(String(requestEntry.status))) {
+      return res.status(409).json({ error: 'Only pending or approved requests can be uploaded.' });
+    }
+
+    const books = readBooks();
+    const newBook = {
+      id: Date.now(),
+      title: requestEntry.title,
+      authorUsername: 'library',
+      authorFullName: requestEntry.author,
+      genre: requestEntry.genre,
+      summary: description ? String(description).trim() : requestEntry.reason,
+      publishDate: new Date().toISOString().split('T')[0],
+      approved: true,
+      status: 'available',
+      borrowCount: 0,
+    };
+
+    books.push(newBook);
+    writeBooks(books);
+
+    requestEntry.status = 'uploaded';
+    requestEntry.reviewedAt = requestEntry.reviewedAt || new Date().toISOString();
+    requestEntry.reviewedBy = requestEntry.reviewedBy || (librarianUsername ? String(librarianUsername) : 'librarian');
+    requestEntry.uploadedAt = new Date().toISOString();
+    requestEntry.uploadedBookId = newBook.id;
+    requestEntry.rejectionReason = '';
+    bookRequests[requestIndex] = requestEntry;
+    writeBookRequests(bookRequests);
+
+    addNotificationForUser(
+      requestEntry.requestedBy,
+      'other',
+      `Your requested book "${requestEntry.title}" has been approved and uploaded to the library system.`
+    );
+
+    res.json({ message: 'Book request uploaded successfully.', request: requestEntry, book: newBook });
+  } catch (err) {
+    console.error('Error uploading requested book:', err);
+    res.status(500).json({ error: 'Failed to upload requested book.' });
   }
 });
 

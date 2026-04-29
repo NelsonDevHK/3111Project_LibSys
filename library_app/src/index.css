@@ -1190,3 +1190,37 @@ button[type="submit"]:hover {
 .modal-close-button:hover {
   background: #6272a4;
 }
+
+.request-book-screen {
+  margin-top: 8px;
+}
+
+.request-book-screen h2 {
+  color: #4fd6b0;
+  margin-bottom: 8px;
+}
+
+.request-book-screen p {
+  margin-bottom: 12px;
+}
+
+.request-book-form {
+  background: #23232e;
+  border: 1px solid #44475a;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.request-book-form input,
+.request-book-form textarea {
+  margin: 0;
+}
+
+.request-book-form button {
+  width: fit-content;
+}
+
+.request-history-panel {
+  margin-top: 12px;
+}

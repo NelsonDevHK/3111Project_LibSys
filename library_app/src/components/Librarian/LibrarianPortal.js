@@ -14,7 +14,7 @@ function LibrarianPortal({ currentUser, onLogout, onProfileUpdated }) {
       </div>
       <p>Welcome, {currentUser ? currentUser.username : 'Librarian'}! This is your dashboard.</p>
       <NotificationBoard currentUser={currentUser} />
-      <NewBookSubmissions />
+      <NewBookSubmissions currentUser={currentUser} />
       <ManageProfileScreen
         currentUser={currentUser}
         onProfileUpdated={onProfileUpdated}

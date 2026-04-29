@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-function NewBookSubmissions() {
+function NewBookSubmissions({ currentUser }) {
   const [submissions, setSubmissions] = useState([]);
   const [selectedSubmissions, setSelectedSubmissions] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -8,9 +8,41 @@ function NewBookSubmissions() {
 
   const fetchSubmissions = async () => {
     try {
-      const res = await fetch('http://localhost:4000/api/submissions');
-      const data = await res.json();
-      setSubmissions(data);
+      const [authorRes, requestRes] = await Promise.all([
+        fetch('http://localhost:4000/api/submissions'),
+        fetch('http://localhost:4000/api/book-requests'),
+      ]);
+
+      const authorPayload = await authorRes.json().catch(() => []);
+      const requestPayload = await requestRes.json().catch(() => ({ bookRequests: [] }));
+
+      const authorSubmissions = Array.isArray(authorPayload)
+        ? authorPayload.map((item) => ({
+            ...item,
+            submissionType: 'author',
+            selectionId: `author:${item.id}`,
+            submittedDate: item.submittedDate || item.publishDate,
+          }))
+        : [];
+
+      const requestSubmissions = Array.isArray(requestPayload?.bookRequests)
+        ? requestPayload.bookRequests.map((item) => ({
+            id: item.id,
+            title: item.title,
+            authorUsername: item.requestedBy,
+            author: item.author,
+            genre: item.genre,
+            status: item.status,
+            submittedDate: item.submittedAt
+              ? new Date(item.submittedAt).toISOString().split('T')[0]
+              : '',
+            submissionType: 'request',
+            reason: item.reason,
+            selectionId: `request:${item.id}`,
+          }))
+        : [];
+
+      setSubmissions([...authorSubmissions, ...requestSubmissions]);
     } catch {
       console.error('Failed to fetch submissions.');
     }
@@ -39,20 +71,45 @@ function NewBookSubmissions() {
 
     try {
       const responses = await Promise.all(
-        selectedSubmissions.map(async (id) => {
-          const response = await fetch(`http://localhost:4000/api/submissions/${id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              isApproved,
-              rejectionReason: isApproved ? undefined : rejectionReason,
-              sendToAuthor: !isApproved,
-            }),
-          });
+        selectedSubmissions.map(async (selectionId) => {
+          const [submissionType, id] = selectionId.split(':');
+          let response;
+
+          if (submissionType === 'request') {
+            if (isApproved) {
+              response = await fetch(`http://localhost:4000/api/book-requests/${id}/upload`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  librarianUsername: currentUser?.username,
+                }),
+              });
+            } else {
+              response = await fetch(`http://localhost:4000/api/book-requests/${id}/review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  isApproved: false,
+                  rejectionReason,
+                  librarianUsername: currentUser?.username,
+                }),
+              });
+            }
+          } else {
+            response = await fetch(`http://localhost:4000/api/submissions/${id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                isApproved,
+                rejectionReason: isApproved ? undefined : rejectionReason,
+                sendToAuthor: !isApproved,
+              }),
+            });
+          }
 
           const payload = await response.json().catch(() => ({}));
           if (!response.ok) {
-            throw new Error(payload.error || `Failed to ${isApproved ? 'approve' : 'reject'} submission ${id}.`);
+            throw new Error(payload.error || `Failed to ${isApproved ? 'approve' : 'reject'} submission ${selectionId}.`);
           }
 
           return response;
@@ -80,19 +137,24 @@ function NewBookSubmissions() {
   };
 
   const filteredSubmissions = submissions.filter((submission) => {
+    const normalizedStatus = String(submission.status || 'pending').toLowerCase();
+    const normalizedTitle = String(submission.title || '').toLowerCase();
+    const normalizedSubmitter = String(submission.authorUsername || '').toLowerCase();
+    const normalizedSearchTerm = searchTerm.toLowerCase();
     const matchesSearch =
-      submission.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      submission.authorUsername.toLowerCase().includes(searchTerm.toLowerCase());
+      normalizedTitle.includes(normalizedSearchTerm) || normalizedSubmitter.includes(normalizedSearchTerm);
 
     const matchesStatus =
-      filterStatus === "all" || submission.status.toLowerCase() === filterStatus.toLowerCase();
+      filterStatus === "all" || normalizedStatus === filterStatus.toLowerCase();
 
     return matchesSearch && matchesStatus;
   });
 
-  const toggleSelection = (id) => {
+  const toggleSelection = (selectionId) => {
     setSelectedSubmissions((prev) =>
-      prev.includes(id) ? prev.filter((submissionId) => submissionId !== id) : [...prev, id]
+      prev.includes(selectionId)
+        ? prev.filter((submissionId) => submissionId !== selectionId)
+        : [...prev, selectionId]
     );
   };
 
@@ -115,36 +177,43 @@ function NewBookSubmissions() {
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
+          <option value="uploaded">Uploaded</option>
         </select>
       </div>
-      <button onClick={() => handleBulkAction(true)}>Approve Selected</button>
+      <button onClick={() => handleBulkAction(true)}>Approve Selected (Requests auto-upload)</button>
       <button onClick={() => handleBulkAction(false)}>Reject Selected</button>
       <table>
         <thead>
           <tr>
             <th>Select</th>
+            <th>Type</th>
             <th>Title</th>
-            <th>Author</th>
+            <th>Submitted By</th>
+            <th>Requested Author</th>
             <th>Genre</th>
+            <th>Reason/Description</th>
             <th>Submitted Date</th>
             <th>Status</th>
           </tr>
         </thead>
         <tbody>
           {filteredSubmissions.map((submission) => (
-            <tr key={submission.id}>
+            <tr key={submission.selectionId}>
               <td>
                 <input
                   type="checkbox"
-                  checked={selectedSubmissions.includes(submission.id)}
-                  onChange={() => toggleSelection(submission.id)}
+                  checked={selectedSubmissions.includes(submission.selectionId)}
+                  onChange={() => toggleSelection(submission.selectionId)}
                 />
               </td>
+              <td>{submission.submissionType}</td>
               <td>{submission.title}</td>
               <td>{submission.authorUsername}</td>
+              <td>{submission.author || '-'}</td>
               <td>{submission.genre}</td>
+              <td>{submission.reason || submission.description || '-'}</td>
               <td>{submission.submittedDate}</td>
-              <td>{submission.status}</td>
+              <td>{submission.status || 'pending'}</td>
             </tr>
           ))}
         </tbody>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import AvailableBooks from './AvailableBooks';
 import BorrowedBooksScreen from './BorrowedBooksScreen';
 import ReadingHistoryScreen from './ReadingHistoryScreen';
+import RequestNewBookScreen from './RequestNewBookScreen';
 
 function BookBorrowSection({ currentUser }) {
   const [borrowMessage, setBorrowMessage] = useState('');
@@ -58,14 +59,23 @@ function BookBorrowSection({ currentUser }) {
         >
           Reading History
         </button>
+        <button
+          type="button"
+          className={activeView === 'request' ? 'active' : ''}
+          onClick={() => setActiveView('request')}
+        >
+          Request New Book
+        </button>
       </div>
 
       {activeView === 'available' ? (
         <AvailableBooks onBorrow={handleBorrow} currentUser={currentUser} />
       ) : activeView === 'borrowed' ? (
         <BorrowedBooksScreen currentUser={currentUser} />
-      ) : (
+      ) : activeView === 'history' ? (
         <ReadingHistoryScreen currentUser={currentUser} />
+      ) : (
+        <RequestNewBookScreen currentUser={currentUser} />
       )}
 
       {borrowMessage && <div className="success">{borrowMessage}</div>}
