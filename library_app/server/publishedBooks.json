@@ -46,6 +46,28 @@
       "coverPath": "",
       "publishDate": "2026-04-02",
       "rejectionReason": "asdf"
+    },
+    "1777663362049": {
+      "id": 1777663362049,
+      "title": "nkefcd",
+      "genre": "Non-Fiction,Science",
+      "description": "cdwcd",
+      "status": "approved",
+      "borrowed": false,
+      "filePath": "bookAssets/1777663362040.pdf",
+      "coverPath": "",
+      "publishDate": "2026-05-01"
+    },
+    "1777665032618": {
+      "id": 1777665032618,
+      "title": "juy6",
+      "genre": "Non-Fiction,History",
+      "description": "dwe",
+      "status": "pending",
+      "borrowed": false,
+      "filePath": "bookAssets\\1777665032606.pdf",
+      "coverPath": "",
+      "publishDate": "2026-05-01"
     }
   }
 }

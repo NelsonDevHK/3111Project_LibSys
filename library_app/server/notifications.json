@@ -5,7 +5,16 @@
     "dueReminders": [],
     "bookDeletionNotices": [],
     "other": [],
-    "bookApprovalUpdates": [],
+    "bookApprovalUpdates": [
+      {
+        "id": "2b8c244c-2f31-4155-af7d-de055f1b9058",
+        "category": "bookApprovalUpdates",
+        "message": "Book approved: \"nkefcd\" has been approved and published.",
+        "timestamp": "2026-05-01T19:44:14.050Z",
+        "unread": true,
+        "archived": false
+      }
+    ],
     "bookRejectionUpdates": [
       {
         "id": "b2485e7d-27b6-4198-9100-53caa8c70ef4",
@@ -73,10 +82,18 @@
   "librarian1": {
     "newSubmissions": [
       {
-        "id": "081d10e7-2c98-453e-8e00-10603f2d8ec1",
+        "id": "a4258c30-6145-4716-abf1-aca5f5ac4c48",
         "category": "newSubmissions",
-        "message": "New submission: \"asdfadsfadsf\" by author1.",
-        "timestamp": "2026-04-02T09:20:54.932Z",
+        "message": "New submission: \"juy6\" by author1.",
+        "timestamp": "2026-05-01T19:50:32.623Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "647a36c7-43c3-4675-9741-53868b41980a",
+        "category": "newSubmissions",
+        "message": "New submission: \"nkefcd\" by author1.",
+        "timestamp": "2026-05-01T19:22:42.052Z",
         "unread": true,
         "archived": false
       }
@@ -93,7 +110,24 @@
     "bookUpdates": [],
     "newSubmissions": [],
     "accountUpdates": [],
-    "dueReminders": [],
+    "dueReminders": [
+      {
+        "id": "2aeef0cd-969f-42fc-9e38-b8be153f07d0",
+        "category": "dueReminders",
+        "message": "Return complete: \"Book 3\" was returned successfully.",
+        "timestamp": "2026-05-01T20:04:52.731Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "847380ff-cb7f-4a04-bde3-018a2a050117",
+        "category": "dueReminders",
+        "message": "Due reminder: \"Book 3\" is due on 2026-05-11.",
+        "timestamp": "2026-05-01T20:04:42.298Z",
+        "unread": true,
+        "archived": false
+      }
+    ],
     "bookDeletionNotices": [
       {
         "id": "db21b845-0d01-47f5-bb4c-f15c3a2db2a1",
@@ -113,6 +147,22 @@
     "bookRejectionUpdates": [],
     "bookUpdates": [],
     "newSubmissions": [
+      {
+        "id": "388ac50e-ce1c-40ca-a3d7-e72f01726e60",
+        "category": "newSubmissions",
+        "message": "New submission: \"juy6\" by author1.",
+        "timestamp": "2026-05-01T19:50:32.623Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "6d5fc7ce-63a0-4145-b616-2c6b9a65eb1d",
+        "category": "newSubmissions",
+        "message": "New submission: \"nkefcd\" by author1.",
+        "timestamp": "2026-05-01T19:22:42.052Z",
+        "unread": true,
+        "archived": false
+      },
       {
         "id": "2f2516e7-d259-4ae0-9879-0da088c4b708",
         "category": "newSubmissions",

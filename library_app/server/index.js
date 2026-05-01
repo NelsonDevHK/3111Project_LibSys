@@ -589,6 +589,7 @@ function trackBookBorrowHistory(username, book) {
     activeEntry.author = book.authorFullName || activeEntry.author || 'Unknown';
     activeEntry.genre = book.genre || activeEntry.genre || 'Unknown';
     activeEntry.status = 'borrowed';
+    activeEntry.publishDate = book.publishDate || activeEntry.publishDate || null;
   } else {
     userHistory.unshift({
       id: randomUUID(),
@@ -599,6 +600,7 @@ function trackBookBorrowHistory(username, book) {
       borrowDate: book.borrowedAt || nowIso,
       dueDate: book.dueAt || null,
       returnDate: null,
+      publishDate: book.publishDate || null,
       status: 'borrowed',
       readingDurationMinutes: 0,
       progress: {
@@ -1140,9 +1142,11 @@ app.get('/api/reading-history/:username', (req, res) => {
 
   const history = userHistory
     .map((entry) => {
-      const borrowDate = entry.borrowDate || null;
+      // Use publishDate if available, otherwise use borrowDate
+      const startDate = entry.publishDate || entry.borrowDate;
       const returnDate = entry.returnDate || null;
-      const startMs = borrowDate ? new Date(borrowDate).getTime() : NaN;
+      
+      const startMs = startDate ? new Date(startDate).getTime() : NaN;
       const endMs = returnDate ? new Date(returnDate).getTime() : Date.now();
 
       let computedDurationMinutes = Number(entry.readingDurationMinutes) || 0;
@@ -1452,8 +1456,8 @@ app.post('/api/publish',
       return res.status(400).json({ error: 'Cover image must be smaller than 5 MB.' });
     }
 
-    const relativePdfPath = path.relative(__dirname, pdfFile.path);
-    const relativeCoverPath = coverFile ? path.relative(__dirname, coverFile.path) : '';
+    const relativePdfPath = path.relative(__dirname, pdfFile.path).replace(/\\/g, '/');
+    const relativeCoverPath = coverFile ? path.relative(__dirname, coverFile.path).replace(/\\/g, '/') : '';
 
     const newBook = {
       id: Date.now(),
@@ -2418,6 +2422,10 @@ app.post('/api/librarian/add-book',
       const pdfFile = req.files.file[0];
       const coverFile = req.files.cover && req.files.cover[0];
       
+      // Normalize paths to forward slashes for consistency across platforms
+      const normalizedPdfPath = pdfFile.path.replace(/\\/g, '/');
+      const normalizedCoverPath = coverFile ? coverFile.path.replace(/\\/g, '/') : '';
+      
       if (pdfFile.size > MAX_BOOK_FILE_SIZE_BYTES) {
         return res.status(400).json({ error: 'Book PDF must be smaller than 25 MB.' });
       }
@@ -2426,8 +2434,8 @@ app.post('/api/librarian/add-book',
         return res.status(400).json({ error: 'Cover image must be smaller than 5 MB.' });
       }
       
-      const relativePdfPath = path.relative(__dirname, pdfFile.path);
-      const relativeCoverPath = coverFile ? path.relative(__dirname, coverFile.path) : '';
+      const relativePdfPath = path.relative(__dirname, normalizedPdfPath).replace(/\\/g, '/');
+      const relativeCoverPath = coverFile ? path.relative(__dirname, normalizedCoverPath).replace(/\\/g, '/') : '';
       
       const books = readBooks();
       const newBook = {

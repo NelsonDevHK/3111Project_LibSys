@@ -1,4 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
   const [books, setBooks] = useState([]);
@@ -10,6 +15,8 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingBook, setEditingBook] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [previewBook, setPreviewBook] = useState(null);
+  const [numPages, setNumPages] = useState(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -587,6 +594,101 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
         </div>
       )}
 
+      {/* PDF Preview Modal */}
+      {previewBook && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1001,
+            overflow: 'auto',
+            padding: '20px',
+          }}
+          onClick={() => setPreviewBook(null)}
+        >
+          <div
+            style={{
+              backgroundColor: '#23232e',
+              padding: '20px',
+              borderRadius: '4px',
+              border: '1px solid #6272a4',
+              maxWidth: '900px',
+              width: '90%',
+              maxHeight: '90vh',
+              overflow: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h4 style={{ color: '#ffb86c', marginTop: 0 }}>{previewBook.title}</h4>
+            <p style={{ color: '#8f93a2', margin: '4px 0' }}>
+              <strong>Author:</strong> {previewBook.author}
+            </p>
+            <p style={{ color: '#8f93a2', margin: '4px 0' }}>
+              <strong>Genre:</strong> {previewBook.genre}
+            </p>
+            
+            <div style={{ marginTop: '16px', marginBottom: '16px', textAlign: 'center' }}>
+              <Document
+                file={`http://localhost:4000/${previewBook.filePath}`}
+                onLoadSuccess={({ numPages: pages }) => setNumPages(pages)}
+                onLoadError={() => setMessage('Failed to load PDF preview.')}
+              >
+                <Page
+                  pageNumber={1}
+                  width={Math.min(800, window.innerWidth - 60)}
+                  renderTextLayer={false}
+                />
+              </Document>
+              {numPages && (
+                <p style={{ color: '#8f93a2', marginTop: '8px', fontSize: '0.9rem' }}>
+                  Page 1 of {numPages}
+                </p>
+              )}
+            </div>
+            
+            <div style={{ textAlign: 'center' }}>
+              <a
+                href={`http://localhost:4000/${previewBook.filePath}`}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  backgroundColor: '#4fd6b0',
+                  color: '#23232e',
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  textDecoration: 'none',
+                  fontWeight: 'bold',
+                  display: 'inline-block',
+                  marginRight: '8px',
+                }}
+              >
+                Download PDF
+              </a>
+              <button
+                onClick={() => setPreviewBook(null)}
+                style={{
+                  backgroundColor: '#6272a4',
+                  color: '#f8f8f2',
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Books Table */}
       {filteredBooks.length === 0 ? (
         <p style={{ color: '#8f93a2' }}>No books found.</p>
@@ -594,11 +696,11 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #6272a4' }}>
-              <th style={{ padding: '8px', textAlign: 'left', color: '#8f93a2' }}>Title</th>
-              <th style={{ padding: '8px', textAlign: 'left', color: '#8f93a2' }}>Author</th>
-              <th style={{ padding: '8px', textAlign: 'left', color: '#8f93a2' }}>Genre</th>
-              <th style={{ padding: '8px', textAlign: 'center', color: '#8f93a2' }}>Status</th>
-              <th style={{ padding: '8px', textAlign: 'center', color: '#8f93a2' }}>Actions</th>
+              <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c' }}>Title</th>
+              <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c' }}>Author</th>
+              <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c' }}>Genre</th>
+              <th style={{ padding: '8px', textAlign: 'center', color: '#ffb86c' }}>Status</th>
+              <th style={{ padding: '8px', textAlign: 'center', color: '#ffb86c' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -617,6 +719,21 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
                   {book.status}
                 </td>
                 <td style={{ padding: '8px', textAlign: 'center' }}>
+                  <button
+                    onClick={() => setPreviewBook(book)}
+                    style={{
+                      backgroundColor: '#8f93a2',
+                      color: '#23232e',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      marginRight: '4px',
+                      fontSize: '0.85rem',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Preview
+                  </button>
                   <button
                     onClick={() => handleEditClick(book)}
                     style={{

@@ -11,6 +11,27 @@
       "coverPath": "",
       "publishDate": "2026-04-02",
       "approved": true,
+      "status": "available",
+      "borrowCount": 1,
+      "borrowHistory": [
+        {
+          "username": "s1",
+          "borrowedAt": "2026-05-01T20:04:42.291Z",
+          "dueDate": "2026-05-11"
+        }
+      ]
+    },
+    {
+      "id": 1777663362049,
+      "title": "nkefcd",
+      "authorUsername": "author1",
+      "authorFullName": "Author One",
+      "genre": "Non-Fiction,Science",
+      "description": "cdwcd",
+      "filePath": "bookAssets\\1777663362040.pdf",
+      "coverPath": "",
+      "publishDate": "2026-05-01",
+      "approved": true,
       "status": "available"
     }
   ]

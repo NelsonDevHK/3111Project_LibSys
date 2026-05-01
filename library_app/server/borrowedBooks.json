@@ -1,5 +1,13 @@
 [
   {
+    "bookId": 1775121575704,
+    "bookTitle": "Book 3",
+    "borrowerUsername": "s1",
+    "borrowDate": "2026-05-01",
+    "returnDate": "2026-05-01",
+    "status": "returned"
+  },
+  {
     "bookTitle": "The Great Gatsby",
     "borrowerUsername": "student1",
     "borrowDate": "2026-03-01",
