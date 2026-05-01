@@ -2588,6 +2588,200 @@ app.delete('/api/librarian/published-books/:bookId', (req, res) => {
   }
 });
 
+// Author Review Response Endpoints
+
+// POST /api/reviews/:bookId/:reviewId/response - Author responds to a review
+app.post('/api/reviews/:bookId/:reviewId/response', (req, res) => {
+  try {
+    const { bookId, reviewId } = req.params;
+    const { authorUsername, responseText } = req.body;
+
+    if (!authorUsername || !responseText || !String(responseText).trim()) {
+      return res.status(400).json({ error: 'authorUsername and responseText are required.' });
+    }
+
+    const bookReviews = readBookReviews();
+    const bookIdStr = String(bookId);
+    const reviews = bookReviews[bookIdStr] || [];
+    const reviewIndex = reviews.findIndex((r) => r.id === reviewId);
+
+    if (reviewIndex === -1) {
+      return res.status(404).json({ error: 'Review not found.' });
+    }
+
+    const review = reviews[reviewIndex];
+    if (!review.responses) {
+      review.responses = [];
+    }
+
+    const response = {
+      id: randomUUID(),
+      authorUsername,
+      responseText: String(responseText).trim(),
+      respondedAt: new Date().toISOString(),
+    };
+
+    review.responses.push(response);
+    writeBookReviews(bookReviews);
+
+    // Send notification to the reviewer
+    if (review.username) {
+      addNotificationForUser(
+        review.username,
+        'other',
+        `The author responded to your review for a book.`
+      );
+    }
+
+    res.json({ message: 'Response added successfully.', response });
+  } catch (err) {
+    console.error('Error adding review response:', err);
+    res.status(500).json({ error: 'Failed to add review response.' });
+  }
+});
+
+// POST /api/reviews/:bookId/:reviewId/flag - Flag a review as inappropriate
+app.post('/api/reviews/:bookId/:reviewId/flag', (req, res) => {
+  try {
+    const { bookId, reviewId } = req.params;
+    const { reason } = req.body;
+
+    if (!reason || !String(reason).trim()) {
+      return res.status(400).json({ error: 'reason is required.' });
+    }
+
+    const bookReviews = readBookReviews();
+    const bookIdStr = String(bookId);
+    const reviews = bookReviews[bookIdStr] || [];
+    const reviewIndex = reviews.findIndex((r) => r.id === reviewId);
+
+    if (reviewIndex === -1) {
+      return res.status(404).json({ error: 'Review not found.' });
+    }
+
+    const review = reviews[reviewIndex];
+    review.flagged = true;
+    review.flagReason = String(reason).trim();
+    review.flaggedAt = new Date().toISOString();
+
+    writeBookReviews(bookReviews);
+
+    // Notify librarians
+    addNotificationForRole(
+      'librarian',
+      'other',
+      `Review flagged as inappropriate: "${review.reviewText?.substring(0, 50)}" by ${review.username}.`
+    );
+
+    res.json({ message: 'Review flagged successfully.' });
+  } catch (err) {
+    console.error('Error flagging review:', err);
+    res.status(500).json({ error: 'Failed to flag review.' });
+  }
+});
+
+// GET /api/reviews/author/:authorUsername/books - Get all reviews for an author's books
+app.get('/api/reviews/author/:authorUsername/books', (req, res) => {
+  try {
+    const { authorUsername } = req.params;
+    const publishedBooks = readPublishedBooks();
+    const authorBooks = publishedBooks[authorUsername] || {};
+    const bookReviews = readBookReviews();
+
+    const allReviews = [];
+
+    Object.entries(authorBooks).forEach(([bookId, bookInfo]) => {
+      if (bookInfo.status === 'approved') {
+        const reviews = bookReviews[bookId] || [];
+        reviews.forEach((review) => {
+          allReviews.push({
+            ...review,
+            bookId,
+            bookTitle: bookInfo.title || 'Untitled',
+          });
+        });
+      }
+    });
+
+    res.json({ reviews: allReviews });
+  } catch (err) {
+    console.error('Error fetching author reviews:', err);
+    res.status(500).json({ error: 'Failed to fetch author reviews.' });
+  }
+});
+
+// DELETE /api/reviews/:bookId/:reviewId/response/:responseId - Delete an author response
+app.delete('/api/reviews/:bookId/:reviewId/response/:responseId', (req, res) => {
+  try {
+    const { bookId, reviewId, responseId } = req.params;
+
+    const bookReviews = readBookReviews();
+    const bookIdStr = String(bookId);
+    const reviews = bookReviews[bookIdStr] || [];
+    const reviewIndex = reviews.findIndex((r) => r.id === reviewId);
+
+    if (reviewIndex === -1) {
+      return res.status(404).json({ error: 'Review not found.' });
+    }
+
+    const review = reviews[reviewIndex];
+    if (!Array.isArray(review.responses)) {
+      return res.status(404).json({ error: 'Response not found.' });
+    }
+
+    const responseIndex = review.responses.findIndex((r) => r.id === responseId);
+    if (responseIndex === -1) {
+      return res.status(404).json({ error: 'Response not found.' });
+    }
+
+    review.responses.splice(responseIndex, 1);
+    writeBookReviews(bookReviews);
+
+    res.json({ message: 'Response deleted successfully.' });
+  } catch (err) {
+    console.error('Error deleting review response:', err);
+    res.status(500).json({ error: 'Failed to delete review response.' });
+  }
+});
+
+// LLM-Based Summary Generation Endpoint
+// POST /api/generate-summary - Generate a book summary using LLM (placeholder implementation)
+app.post('/api/generate-summary', (req, res) => {
+  try {
+    const { title, author, genre, reason } = req.body;
+
+    if (!title || !author) {
+      return res.status(400).json({ error: 'title and author are required.' });
+    }
+
+    // Placeholder LLM implementation
+    // In production, this would call an actual LLM API (OpenAI, Claude, etc.)
+    const summary = generateBookSummary(title, author, genre, reason);
+
+    res.json({ summary });
+  } catch (err) {
+    console.error('Error generating summary:', err);
+    res.status(500).json({ error: 'Failed to generate summary.' });
+  }
+});
+
+// Helper function for generating book summaries
+// This is a placeholder implementation
+function generateBookSummary(title, author, genre, reason) {
+  // Basic summary generation logic
+  let summary = `"${title}" is a ${genre || 'fiction'} book by ${author}.\n\n`;
+  
+  if (reason && reason.trim()) {
+    summary += `Summary: ${reason}\n\n`;
+  }
+  
+  summary += `This book explores themes relevant to the ${genre || 'genre'} category `;
+  summary += `and offers readers a journey through compelling narratives and well-developed characters. `;
+  summary += `Perfect for anyone interested in ${genre || 'quality literature'}.`;
+  
+  return summary;
+}
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
