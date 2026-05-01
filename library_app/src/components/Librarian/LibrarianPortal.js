@@ -4,6 +4,7 @@ import ManageProfileScreen from '../ManageProfileScreen';
 import NotificationBoard from '../NotificationBoard';
 import ManageUsers from './ManageUsers';
 import BorrowedBooksRecord from './BorrowedBooksRecord';
+import LibrarianManagePublishedBooksScreen from './LibrarianManagePublishedBooksScreen';
 
 function LibrarianPortal({ currentUser, onLogout, onProfileUpdated }) {
   return (
@@ -15,6 +16,7 @@ function LibrarianPortal({ currentUser, onLogout, onProfileUpdated }) {
       <p>Welcome, {currentUser ? currentUser.username : 'Librarian'}! This is your dashboard.</p>
       <NotificationBoard currentUser={currentUser} />
       <NewBookSubmissions currentUser={currentUser} />
+      <LibrarianManagePublishedBooksScreen currentUser={currentUser} />
       <ManageProfileScreen
         currentUser={currentUser}
         onProfileUpdated={onProfileUpdated}

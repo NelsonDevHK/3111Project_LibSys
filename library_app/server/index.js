@@ -2302,6 +2302,284 @@ app.get('/api/book/:bookId/rating', (req, res) => {
   res.json(ratingInfo);
 });
 
+// Author Statistics Endpoints
+// GET /api/author-statistics/:username - Fetch statistics for author's published books
+app.get('/api/author-statistics/:username', (req, res) => {
+  try {
+    const { username } = req.params;
+    const publishedBooks = readPublishedBooks();
+    const authorBooks = publishedBooks[username] || {};
+    const books = readBooks();
+    
+    const statistics = {
+      totalBooks: 0,
+      totalReads: 0,
+      averageRating: 0,
+      totalReviews: 0,
+      totalBorrows: 0,
+      books: []
+    };
+    
+    Object.entries(authorBooks).forEach(([bookId, publishedBook]) => {
+      if (publishedBook.status === 'approved') {
+        statistics.totalBooks += 1;
+        
+        // Find corresponding book in books.json for borrow count
+        const libraryBook = books.find(b => String(b.id) === String(bookId));
+        const borrowCount = libraryBook ? (Number(libraryBook.borrowCount) || 0) : 0;
+        statistics.totalBorrows += borrowCount;
+        
+        // Get reviews and ratings
+        const reviews = getReviewsForBook(bookId);
+        const ratingInfo = getAverageRating(bookId);
+        statistics.totalReviews += ratingInfo.totalReviews;
+        statistics.totalReads += borrowCount;
+        
+        const bookStats = {
+          id: bookId,
+          title: publishedBook.title || 'Untitled',
+          genre: publishedBook.genre || 'Unknown',
+          reads: borrowCount,
+          rating: ratingInfo.average,
+          reviewCount: ratingInfo.totalReviews,
+        };
+        statistics.books.push(bookStats);
+      }
+    });
+    
+    // Calculate average rating
+    if (statistics.totalReviews > 0) {
+      let totalRating = 0;
+      Object.keys(authorBooks).forEach(bookId => {
+        const reviews = getReviewsForBook(bookId);
+        reviews.forEach(review => {
+          totalRating += review.rating;
+        });
+      });
+      statistics.averageRating = (totalRating / statistics.totalReviews).toFixed(1);
+    }
+    
+    res.json(statistics);
+  } catch (err) {
+    console.error('Error fetching author statistics:', err);
+    res.status(500).json({ error: 'Failed to fetch author statistics.' });
+  }
+});
+
+// Librarian Endpoints - Manage All Published Books
+// GET /api/librarian/published-books - Fetch all published books (across all authors)
+app.get('/api/librarian/published-books', (req, res) => {
+  try {
+    const publishedBooks = readPublishedBooks();
+    const books = readBooks();
+    const allBooks = [];
+    
+    Object.entries(publishedBooks).forEach(([authorUsername, authorBooks]) => {
+      Object.entries(authorBooks).forEach(([bookId, publishedBook]) => {
+        const libraryBook = books.find(b => String(b.id) === String(bookId));
+        const borrowCount = libraryBook ? (Number(libraryBook.borrowCount) || 0) : 0;
+        
+        allBooks.push({
+          id: bookId,
+          title: publishedBook.title || 'Untitled',
+          author: authorUsername,
+          genre: publishedBook.genre || 'Unknown',
+          description: publishedBook.description || '',
+          status: publishedBook.status || 'pending',
+          reads: borrowCount,
+          coverPath: publishedBook.coverPath || '',
+          filePath: publishedBook.filePath || '',
+        });
+      });
+    });
+    
+    res.json({ books: allBooks });
+  } catch (err) {
+    console.error('Error fetching all published books:', err);
+    res.status(500).json({ error: 'Failed to fetch published books.' });
+  }
+});
+
+// POST /api/librarian/add-book - Librarian adds a new book directly
+app.post('/api/librarian/add-book',
+  upload.fields([{ name: 'file', maxCount: 1 }, { name: 'cover', maxCount: 1 }]),
+  (req, res) => {
+    try {
+      const { title, author, genre, description } = req.body;
+      
+      if (!title || !author || !genre) {
+        return res.status(400).json({ error: 'Title, Author, and Genre are required.' });
+      }
+      
+      if (!req.files || !req.files.file) {
+        return res.status(400).json({ error: 'Book PDF file is required.' });
+      }
+      
+      const pdfFile = req.files.file[0];
+      const coverFile = req.files.cover && req.files.cover[0];
+      
+      if (pdfFile.size > MAX_BOOK_FILE_SIZE_BYTES) {
+        return res.status(400).json({ error: 'Book PDF must be smaller than 25 MB.' });
+      }
+      
+      if (coverFile && coverFile.size > MAX_COVER_FILE_SIZE_BYTES) {
+        return res.status(400).json({ error: 'Cover image must be smaller than 5 MB.' });
+      }
+      
+      const relativePdfPath = path.relative(__dirname, pdfFile.path);
+      const relativeCoverPath = coverFile ? path.relative(__dirname, coverFile.path) : '';
+      
+      const books = readBooks();
+      const newBook = {
+        id: Date.now(),
+        title,
+        authorUsername: 'librarian',
+        authorFullName: author,
+        genre,
+        description,
+        filePath: relativePdfPath,
+        coverPath: relativeCoverPath,
+        publishDate: new Date().toISOString().split('T')[0],
+        status: 'available',
+        approved: true,
+        borrowCount: 0,
+      };
+      
+      books.push(newBook);
+      writeBooks(books);
+      
+      // Also add to publishedBooks.json
+      const publishedBooks = readPublishedBooks();
+      const librarianBooks = ensureAuthorPublishedBooks(publishedBooks, 'librarian');
+      librarianBooks[newBook.id] = {
+        id: newBook.id,
+        title,
+        genre,
+        description,
+        status: 'approved',
+        borrowed: false,
+        filePath: relativePdfPath,
+        coverPath: relativeCoverPath,
+        publishDate: newBook.publishDate,
+      };
+      writePublishedBooks(publishedBooks);
+      
+      addNotificationForRole(
+        'librarian',
+        'other',
+        `New book added: "${title}" by ${author}.`
+      );
+      
+      res.json({ message: 'Book added successfully.', book: newBook });
+    } catch (err) {
+      console.error('Error adding book:', err);
+      res.status(500).json({ error: 'Failed to add book.' });
+    }
+  }
+);
+
+// PATCH /api/librarian/published-books/:bookId - Librarian updates any book
+app.patch('/api/librarian/published-books/:bookId', (req, res) => {
+  try {
+    const { bookId } = req.params;
+    const { title, genre, description } = req.body;
+    
+    const publishedBooks = readPublishedBooks();
+    let targetBook = null;
+    let authorUsername = null;
+    
+    // Find the book in published books
+    for (const [author, authorBooks] of Object.entries(publishedBooks)) {
+      if (authorBooks[bookId]) {
+        targetBook = authorBooks[bookId];
+        authorUsername = author;
+        break;
+      }
+    }
+    
+    if (!targetBook) {
+      return res.status(404).json({ error: 'Book not found.' });
+    }
+    
+    // Update fields
+    if (title !== undefined) targetBook.title = title;
+    if (genre !== undefined) targetBook.genre = genre;
+    if (description !== undefined) targetBook.description = description;
+    
+    // Sync with books.json
+    const books = readBooks();
+    const libraryBook = books.find(b => String(b.id) === String(bookId));
+    if (libraryBook) {
+      if (title !== undefined) libraryBook.title = title;
+      if (genre !== undefined) libraryBook.genre = genre;
+      if (description !== undefined) libraryBook.description = description;
+      writeBooks(books);
+    }
+    
+    writePublishedBooks(publishedBooks);
+    res.json({ message: 'Book updated successfully.', book: targetBook });
+  } catch (err) {
+    console.error('Error updating book:', err);
+    res.status(500).json({ error: 'Failed to update book.' });
+  }
+});
+
+// DELETE /api/librarian/published-books/:bookId - Librarian deletes any book
+app.delete('/api/librarian/published-books/:bookId', (req, res) => {
+  try {
+    const { bookId } = req.params;
+    
+    const publishedBooks = readPublishedBooks();
+    let bookTitle = null;
+    let authorUsername = null;
+    
+    // Find and delete from published books
+    for (const [author, authorBooks] of Object.entries(publishedBooks)) {
+      if (authorBooks[bookId]) {
+        bookTitle = authorBooks[bookId].title;
+        authorUsername = author;
+        delete authorBooks[bookId];
+        break;
+      }
+    }
+    
+    if (!bookTitle) {
+      return res.status(404).json({ error: 'Book not found.' });
+    }
+    
+    writePublishedBooks(publishedBooks);
+    
+    // Also delete from books.json
+    const books = readBooks();
+    const libraryBookIndex = books.findIndex(b => String(b.id) === String(bookId));
+    if (libraryBookIndex !== -1) {
+      const removedBook = books[libraryBookIndex];
+      books.splice(libraryBookIndex, 1);
+      writeBooks(books);
+      
+      // Notify borrower if book is currently borrowed
+      if (removedBook.borrowedBy) {
+        addNotificationForUser(
+          removedBook.borrowedBy,
+          'bookDeletionNotices',
+          `Book deletion notice: "${bookTitle}" was deleted by a librarian.`
+        );
+      }
+    }
+    
+    addNotificationForRole(
+      'librarian',
+      'other',
+      `Book deleted: "${bookTitle}".`
+    );
+    
+    res.json({ message: 'Book deleted successfully.' });
+  } catch (err) {
+    console.error('Error deleting book:', err);
+    res.status(500).json({ error: 'Failed to delete book.' });
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

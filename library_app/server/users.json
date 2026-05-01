@@ -6,7 +6,7 @@
       "password": "1",
       "role": "student",
       "status": "active",
-      "lastLoginAt": ""
+      "lastLoginAt": "2026-05-01T17:18:09.614Z"
     },
     {
       "username": "staff1",
@@ -23,7 +23,7 @@
       "role": "author",
       "bio": "Test author bio 2",
       "status": "active",
-      "lastLoginAt": "2026-04-02T09:21:46.057Z"
+      "lastLoginAt": "2026-05-01T19:12:43.025Z"
     },
     {
       "username": "librarian1",

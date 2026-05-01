@@ -2,6 +2,7 @@ import React from 'react';
 import BookBorrowSection from './BookBorrowSection';
 import ManageProfileScreen from '../ManageProfileScreen';
 import NotificationBoard from '../NotificationBoard';
+import ReadingHistoryScreen from './ReadingHistoryScreen';
 
 function StaffPortal({ currentUser, onLogout, onProfileUpdated }) {
   return (
@@ -13,6 +14,7 @@ function StaffPortal({ currentUser, onLogout, onProfileUpdated }) {
       <p>Welcome, {currentUser ? currentUser.username : 'Staff'}! This is your dashboard.</p>
       <NotificationBoard currentUser={currentUser} />
       <BookBorrowSection currentUser={currentUser} />
+      <ReadingHistoryScreen currentUser={currentUser} />
       <ManageProfileScreen
         currentUser={currentUser}
         onProfileUpdated={onProfileUpdated}
