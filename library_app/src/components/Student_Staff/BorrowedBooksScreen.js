@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import ReviewsDisplay from './ReviewsDisplay';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -19,6 +20,7 @@ function BorrowedBooksScreen({ currentUser }) {
   const [selectedRects, setSelectedRects] = useState([]);
   const [feedback, setFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showReviewsBook, setShowReviewsBook] = useState(null);
   const pageLayerRef = useRef(null);
 
   const fetchBorrowedBooks = useCallback(async () => {
@@ -319,6 +321,9 @@ function BorrowedBooksScreen({ currentUser }) {
                   <button type="button" onClick={() => returnBook(book.id)}>
                     Return
                   </button>
+                    <button type="button" onClick={() => setShowReviewsBook(book)}>
+                      Review
+                    </button>
                 </td>
               </tr>
             ))}
@@ -445,6 +450,25 @@ function BorrowedBooksScreen({ currentUser }) {
                 ))
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {showReviewsBook && (
+        <div className="summary-modal">
+          <div className="summary-content reviews-modal-content">
+            <button
+              type="button"
+              className="modal-close-button"
+              onClick={() => setShowReviewsBook(null)}
+            >
+              Close
+            </button>
+            <ReviewsDisplay
+              book={showReviewsBook}
+              username={currentUser.username}
+              userRole={currentUser.role}
+            />
           </div>
         </div>
       )}

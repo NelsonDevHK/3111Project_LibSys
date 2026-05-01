@@ -771,6 +771,32 @@ function getAverageRating(bookId) {
   };
 }
 
+function canUserReviewBook(username, bookId) {
+  if (!username || !bookId) {
+    return false;
+  }
+
+  const users = readUsers().map(normalizeUserRecord).filter(Boolean);
+  const user = users.find((entry) => String(entry.username) === String(username));
+  if (!user || !['student', 'staff'].includes(user.role)) {
+    return false;
+  }
+
+  const targetBookId = String(bookId);
+  const books = readBooks();
+  const currentlyBorrowed = books.some((book) => {
+    return String(book.id) === targetBookId && String(book.borrowedBy || '') === String(username);
+  });
+
+  if (currentlyBorrowed) {
+    return true;
+  }
+
+  const readingHistory = readReadingHistory();
+  const userHistory = Array.isArray(readingHistory[username]) ? readingHistory[username] : [];
+  return userHistory.some((entry) => String(entry?.bookId) === targetBookId);
+}
+
 // Ignore already taken care
 app.post('/api/register', (req, res) => {
   const { username, fullName, password, role, bio, employeeId } = req.body;
@@ -1641,13 +1667,19 @@ app.post('/api/book-requests/:id/upload', (req, res) => {
     }
 
     const books = readBooks();
+    const generatedDescription = String(description || '').trim() || generateBookSummary(
+      requestEntry.title,
+      requestEntry.author,
+      requestEntry.genre,
+      requestEntry.reason
+    );
     const newBook = {
       id: Date.now(),
       title: requestEntry.title,
       authorUsername: 'library',
       authorFullName: requestEntry.author,
       genre: requestEntry.genre,
-      summary: description ? String(description).trim() : requestEntry.reason,
+      summary: generatedDescription,
       publishDate: new Date().toISOString().split('T')[0],
       approved: true,
       status: 'available',
@@ -1672,7 +1704,12 @@ app.post('/api/book-requests/:id/upload', (req, res) => {
       `Your requested book "${requestEntry.title}" has been approved and uploaded to the library system.`
     );
 
-    res.json({ message: 'Book request uploaded successfully.', request: requestEntry, book: newBook });
+    res.json({
+      message: 'Book request uploaded successfully.',
+      request: requestEntry,
+      book: newBook,
+      summaryGenerated: !String(description || '').trim(),
+    });
   } catch (err) {
     console.error('Error uploading requested book:', err);
     res.status(500).json({ error: 'Failed to upload requested book.' });
@@ -2265,6 +2302,12 @@ app.post('/api/reviews', (req, res) => {
 
   if (!book) {
     return res.status(404).json({ error: 'Book not found.' });
+  }
+
+  if (!canUserReviewBook(username, bookId)) {
+    return res.status(403).json({
+      error: 'You can only review books you have borrowed or are currently borrowing.',
+    });
   }
 
   const review = submitReview(username, book, rating, reviewText);

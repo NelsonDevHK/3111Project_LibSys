@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ReviewForm from './ReviewForm';
 
-function ReviewsDisplay({ book, username, userRole }) {
+function ReviewsDisplay({ book, username, userRole, allowReviewSubmission = true }) {
   const [reviews, setReviews] = useState([]);
   const [rating, setRating] = useState(0);
   const [totalReviews, setTotalReviews] = useState(0);
@@ -9,7 +9,7 @@ function ReviewsDisplay({ book, username, userRole }) {
   const [error, setError] = useState('');
   const [showReviewForm, setShowReviewForm] = useState(false);
 
-  const canReview = userRole === 'student' || userRole === 'staff';
+  const canReview = allowReviewSubmission && (userRole === 'student' || userRole === 'staff');
 
   useEffect(() => {
     fetchReviews();

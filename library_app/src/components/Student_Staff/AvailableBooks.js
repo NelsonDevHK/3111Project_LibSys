@@ -392,6 +392,7 @@ function AvailableBooks({ onBorrow, currentUser }) {
               book={showReviewsBook}
               username={currentUser.username}
               userRole={currentUser.role}
+              allowReviewSubmission={false}
             />
           </div>
         </div>

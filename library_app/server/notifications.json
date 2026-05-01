@@ -101,7 +101,16 @@
     "accountUpdates": [],
     "dueReminders": [],
     "bookDeletionNotices": [],
-    "other": [],
+    "other": [
+      {
+        "id": "c2b43e48-ef51-4389-8a4f-9eec44714418",
+        "category": "other",
+        "message": "New review submitted by s1 for \"Book 3\".",
+        "timestamp": "2026-05-01T20:37:39.894Z",
+        "unread": true,
+        "archived": false
+      }
+    ],
     "bookApprovalUpdates": [],
     "bookRejectionUpdates": [],
     "bookUpdates": []
@@ -111,6 +120,22 @@
     "newSubmissions": [],
     "accountUpdates": [],
     "dueReminders": [
+      {
+        "id": "ed917643-ffd2-4588-8cd5-a3affee18430",
+        "category": "dueReminders",
+        "message": "Return complete: \"Book 3\" was returned successfully.",
+        "timestamp": "2026-05-01T20:28:37.355Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "e464b9a5-e928-45a7-9133-8b77da3ca713",
+        "category": "dueReminders",
+        "message": "Due reminder: \"Book 3\" is due on 2026-05-11.",
+        "timestamp": "2026-05-01T20:28:15.502Z",
+        "unread": true,
+        "archived": false
+      },
       {
         "id": "2aeef0cd-969f-42fc-9e38-b8be153f07d0",
         "category": "dueReminders",
@@ -138,7 +163,24 @@
         "archived": false
       }
     ],
-    "other": [],
+    "other": [
+      {
+        "id": "e125bd36-d94b-4f95-81aa-550a6c029502",
+        "category": "other",
+        "message": "The author responded to your review for a book.",
+        "timestamp": "2026-05-01T20:37:57.669Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "a9365d3b-7451-4dce-8abe-22d8ad92f708",
+        "category": "other",
+        "message": "Your review for \"Book 3\" was submitted successfully.",
+        "timestamp": "2026-05-01T20:37:39.890Z",
+        "unread": true,
+        "archived": false
+      }
+    ],
     "bookApprovalUpdates": [],
     "bookRejectionUpdates": []
   },
@@ -199,6 +241,15 @@
     "accountUpdates": [],
     "dueReminders": [],
     "bookDeletionNotices": [],
-    "other": []
+    "other": [
+      {
+        "id": "0d7eada4-1c3d-42ab-acf2-a540ad34db1b",
+        "category": "other",
+        "message": "New review submitted by s1 for \"Book 3\".",
+        "timestamp": "2026-05-01T20:37:39.894Z",
+        "unread": true,
+        "archived": false
+      }
+    ]
   }
 }

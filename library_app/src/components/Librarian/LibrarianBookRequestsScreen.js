@@ -4,6 +4,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
   const [bookRequests, setBookRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [feedback, setFeedback] = useState('');
   const [statusFilter, setStatusFilter] = useState('pending');
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -43,6 +44,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
 
   const handleApproveRequest = async (requestId) => {
     setSubmitting(true);
+    setFeedback('');
 
     try {
       const response = await fetch(
@@ -61,6 +63,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         throw new Error('Failed to approve request.');
       }
 
+      setFeedback('Book request approved successfully.');
       setSelectedRequest(null);
       setRejectionReason('');
       setBookDescription('');
@@ -79,6 +82,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
     }
 
     setSubmitting(true);
+    setFeedback('');
 
     try {
       const response = await fetch(
@@ -98,6 +102,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         throw new Error('Failed to reject request.');
       }
 
+      setFeedback('Book request rejected successfully.');
       setSelectedRequest(null);
       setRejectionReason('');
       setBookDescription('');
@@ -111,8 +116,18 @@ function LibrarianBookRequestsScreen({ currentUser }) {
 
   const handleUploadBook = async (requestId) => {
     setSubmitting(true);
+    setFeedback('');
 
     try {
+      const request = bookRequests.find((r) => r.id === requestId);
+      let nextDescription = bookDescription.trim();
+
+      if (!nextDescription && request) {
+        const generatedDescription = await generateSummaryForRequest(request);
+        nextDescription = generatedDescription;
+        setBookDescription(generatedDescription);
+      }
+
       const response = await fetch(
         `http://localhost:4000/api/book-requests/${requestId}/upload`,
         {
@@ -120,7 +135,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             librarianUsername: currentUser.username,
-            description: bookDescription.trim(),
+            description: nextDescription,
           }),
         }
       );
@@ -129,6 +144,8 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         throw new Error('Failed to upload book.');
       }
 
+      const data = await response.json();
+      setFeedback(data.message || 'Book request processed successfully.');
       setSelectedRequest(null);
       setRejectionReason('');
       setBookDescription('');
@@ -144,9 +161,17 @@ function LibrarianBookRequestsScreen({ currentUser }) {
     const request = bookRequests.find((r) => r.id === requestId);
     if (!request) return;
 
+    setFeedback('');
+
+    const summary = await generateSummaryForRequest(request);
+    setBookDescription(summary);
+  };
+
+  const generateSummaryForRequest = async (request) => {
+    if (!request) return '';
+
     try {
       setSubmitting(true);
-      // Call the LLM endpoint to generate a summary
       const response = await fetch('http://localhost:4000/api/generate-summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,9 +188,10 @@ function LibrarianBookRequestsScreen({ currentUser }) {
       }
 
       const data = await response.json();
-      setBookDescription(data.summary || '');
+      return data.summary || '';
     } catch (err) {
       alert('Failed to generate summary: ' + err.message);
+      return '';
     } finally {
       setSubmitting(false);
     }
@@ -189,6 +215,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
   return (
     <div className="librarian-book-requests-screen">
       <h3>📚 Book Request Management</h3>
+      {feedback && <p className="process-feedback">{feedback}</p>}
 
       <div className="filter-section">
         <label htmlFor="statusFilter">Filter by Status:</label>
@@ -433,7 +460,13 @@ function LibrarianBookRequestsScreen({ currentUser }) {
 
         .librarian-book-requests-screen h3 {
           margin-bottom: 20px;
-          color: #333;
+          color: #ffb86c;
+        }
+
+        .process-feedback {
+          margin: -8px 0 16px;
+          color: #50fa7b;
+          font-weight: 600;
         }
 
         .filter-section {
@@ -445,13 +478,16 @@ function LibrarianBookRequestsScreen({ currentUser }) {
 
         .filter-section label {
           font-weight: bold;
+          color: #ffb86c;
         }
 
         .filter-section select {
           padding: 8px 12px;
-          border: 1px solid #ddd;
+          border: 1px solid #44475a;
           border-radius: 4px;
           font-size: 14px;
+          background-color: #21222c;
+          color: #e6e6e6;
         }
 
         .requests-table-container {
@@ -465,26 +501,27 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         }
 
         .requests-table th {
-          background-color: #f5f5f5;
+          background-color: #292a2d;
+          color: #ffb86c;
           padding: 12px;
           text-align: left;
-          border-bottom: 2px solid #ddd;
+          border-bottom: 2px solid #44475a;
           font-weight: bold;
         }
 
         .requests-table td {
           padding: 12px;
-          border-bottom: 1px solid #ddd;
+          border-bottom: 1px solid #44475a;
         }
 
         .requests-table tbody tr:hover {
-          background-color: #f9f9f9;
+          background-color: #2e2f35;
         }
 
         .role-badge {
           display: inline-block;
-          background-color: #e3f2fd;
-          color: #1976d2;
+          background-color: #44475a;
+          color: #8be9fd;
           padding: 2px 6px;
           border-radius: 3px;
           font-size: 11px;
@@ -501,24 +538,26 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         }
 
         .status-pending {
-          background-color: #ff9800;
+          background-color: #ffb86c;
+          color: #23232e;
         }
 
         .status-approved {
-          background-color: #4caf50;
+          background-color: #50fa7b;
+          color: #23232e;
         }
 
         .status-rejected {
-          background-color: #f44336;
+          background-color: #ff6188;
         }
 
         .status-uploaded {
-          background-color: #2196f3;
+          background-color: #6272a4;
         }
 
         .btn-view-details {
-          background-color: #2196f3;
-          color: white;
+          background-color: #ffb86c;
+          color: #23232e;
           border: none;
           padding: 6px 12px;
           border-radius: 4px;
@@ -527,7 +566,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         }
 
         .btn-view-details:hover {
-          background-color: #1976d2;
+          background-color: #ffca8a;
         }
 
         .modal-overlay {
@@ -544,7 +583,8 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         }
 
         .modal-content {
-          background-color: white;
+          background-color: #292a2d;
+          color: #e6e6e6;
           border-radius: 8px;
           max-width: 600px;
           width: 90%;
@@ -558,7 +598,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
           justify-content: space-between;
           align-items: center;
           padding: 20px;
-          border-bottom: 1px solid #ddd;
+          border-bottom: 1px solid #44475a;
         }
 
         .modal-header h4 {
@@ -570,11 +610,11 @@ function LibrarianBookRequestsScreen({ currentUser }) {
           border: none;
           font-size: 24px;
           cursor: pointer;
-          color: #666;
+          color: #b8b9c2;
         }
 
         .modal-close:hover {
-          color: #000;
+          color: #ffb86c;
         }
 
         .modal-body {
@@ -593,24 +633,25 @@ function LibrarianBookRequestsScreen({ currentUser }) {
 
         .detail-row strong {
           min-width: 150px;
-          color: #333;
+          color: #ffb86c;
         }
 
         .reason-text,
         .rejection-text {
           margin: 5px 0;
           padding: 8px;
-          background-color: #f5f5f5;
-          border-left: 3px solid #ff9800;
+          background-color: #23232e;
+          border-left: 3px solid #ffb86c;
           border-radius: 2px;
         }
 
         .rejection-text {
-          border-left-color: #f44336;
+          border-left-color: #ff6188;
         }
 
         .action-section {
-          background-color: #fafafa;
+          background-color: #23232e;
+          border: 1px solid #44475a;
           padding: 15px;
           border-radius: 4px;
           margin-bottom: 20px;
@@ -618,7 +659,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
 
         .action-section h5 {
           margin-top: 0;
-          color: #333;
+          color: #ffb86c;
         }
 
         .form-group {
@@ -629,22 +670,24 @@ function LibrarianBookRequestsScreen({ currentUser }) {
           display: block;
           font-weight: bold;
           margin-bottom: 5px;
-          color: #333;
+          color: #ffb86c;
         }
 
         .form-group textarea {
           width: 100%;
           padding: 10px;
-          border: 1px solid #ddd;
+          border: 1px solid #44475a;
           border-radius: 4px;
-          font-family: Arial, sans-serif;
+          font-family: inherit;
           resize: vertical;
           margin-bottom: 8px;
+          background-color: #21222c;
+          color: #e6e6e6;
         }
 
         .btn-generate-summary {
-          background-color: #9c27b0;
-          color: white;
+          background-color: #ffb86c;
+          color: #23232e;
           border: none;
           padding: 8px 16px;
           border-radius: 4px;
@@ -654,7 +697,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         }
 
         .btn-generate-summary:hover {
-          background-color: #7b1fa2;
+          background-color: #ffca8a;
         }
 
         .btn-generate-summary:disabled {
@@ -675,8 +718,8 @@ function LibrarianBookRequestsScreen({ currentUser }) {
 
         .approve-section button {
           width: 100%;
-          background-color: #4caf50;
-          color: white;
+          background-color: #50fa7b;
+          color: #23232e;
           border: none;
           padding: 10px;
           border-radius: 4px;
@@ -686,7 +729,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         }
 
         .approve-section button:hover {
-          background-color: #45a049;
+          background-color: #69ff94;
         }
 
         .approve-section button:disabled {
@@ -701,7 +744,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
 
         .reject-section button {
           width: 100%;
-          background-color: #f44336;
+          background-color: #ff6188;
           color: white;
           border: none;
           padding: 10px;
@@ -712,7 +755,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         }
 
         .reject-section button:hover {
-          background-color: #da190b;
+          background-color: #ff7aa2;
         }
 
         .reject-section button:disabled {
@@ -722,8 +765,8 @@ function LibrarianBookRequestsScreen({ currentUser }) {
 
         .btn-upload {
           width: 100%;
-          background-color: #2196f3;
-          color: white;
+          background-color: #ffb86c;
+          color: #23232e;
           border: none;
           padding: 10px;
           border-radius: 4px;
@@ -733,7 +776,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         }
 
         .btn-upload:hover {
-          background-color: #1976d2;
+          background-color: #ffca8a;
         }
 
         .btn-upload:disabled {
@@ -742,8 +785,9 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         }
 
         .info-text {
-          color: #666;
-          background-color: #e3f2fd;
+          color: #8be9fd;
+          background-color: #23232e;
+          border: 1px solid #44475a;
           padding: 10px;
           border-radius: 4px;
           margin-bottom: 15px;
@@ -757,8 +801,8 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         }
 
         .btn-close-modal {
-          background-color: #ddd;
-          color: #333;
+          background-color: #44475a;
+          color: #e6e6e6;
           border: none;
           padding: 8px 16px;
           border-radius: 4px;
@@ -767,7 +811,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         }
 
         .btn-close-modal:hover {
-          background-color: #ccc;
+          background-color: #6272a4;
         }
 
         .loading,
@@ -779,15 +823,15 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         }
 
         .error {
-          color: #f44336;
+          color: #ff6188;
         }
 
         .loading {
-          color: #666;
+          color: #b8b9c2;
         }
 
         .no-requests {
-          color: #999;
+          color: #b8b9c2;
         }
 
         @media (max-width: 768px) {

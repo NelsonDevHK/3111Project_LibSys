@@ -276,11 +276,11 @@ function AuthorReviewsScreen({ currentUser }) {
 
         .author-reviews-screen h3 {
           margin-bottom: 20px;
-          color: #333;
+          color: #ffb86c;
         }
 
         .reviews-summary {
-          color: #666;
+          color: #8be9fd;
           margin-bottom: 15px;
         }
 
@@ -291,16 +291,16 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .review-card {
-          border: 1px solid #ddd;
+          border: 1px solid #44475a;
           border-radius: 8px;
           padding: 15px;
-          background-color: #fff;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          background-color: #23232e;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
         }
 
         .review-card.flagged {
-          border-color: #ff6b6b;
-          background-color: #ffe6e6;
+          border-color: #ff6188;
+          background-color: #2f2227;
         }
 
         .review-header {
@@ -315,14 +315,14 @@ function AuthorReviewsScreen({ currentUser }) {
 
         .book-title {
           font-weight: bold;
-          color: #333;
+          color: #e6e6e6;
           display: block;
           margin-bottom: 5px;
         }
 
         .reviewer-info {
           font-size: 12px;
-          color: #666;
+          color: #b8b9c2;
         }
 
         .review-rating {
@@ -332,22 +332,22 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .star-filled {
-          color: #ffc107;
+          color: #ffb86c;
         }
 
         .star-empty {
-          color: #ddd;
+          color: #44475a;
         }
 
         .rating-text {
           font-size: 12px;
-          color: #666;
+          color: #b8b9c2;
           margin-left: 5px;
         }
 
         .flagged-badge {
-          background-color: #ff6b6b;
-          color: white;
+          background-color: #ff6188;
+          color: #fff;
           padding: 8px 12px;
           border-radius: 4px;
           font-size: 12px;
@@ -355,13 +355,14 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .review-text {
-          color: #555;
+          color: #e6e6e6;
           margin: 10px 0;
           line-height: 1.5;
         }
 
         .responses-section {
-          background-color: #f0f0f0;
+          background-color: #292a2d;
+          border: 1px solid #44475a;
           padding: 10px;
           border-radius: 4px;
           margin: 10px 0;
@@ -369,13 +370,13 @@ function AuthorReviewsScreen({ currentUser }) {
 
         .responses-section h5 {
           margin-top: 0;
-          color: #333;
+          color: #ffb86c;
         }
 
         .response-item {
-          background-color: #fff;
+          background-color: #2e2f35;
           padding: 10px;
-          border-left: 3px solid #4CAF50;
+          border-left: 3px solid #50fa7b;
           margin-bottom: 8px;
         }
 
@@ -388,7 +389,7 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .response-author {
-          color: #666;
+          color: #8be9fd;
         }
 
         .btn-delete-response {
@@ -406,13 +407,14 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .response-text {
-          color: #555;
+          color: #e6e6e6;
           margin: 5px 0 0 0;
           font-size: 14px;
         }
 
         .response-form {
-          background-color: #f9f9f9;
+          background-color: #292a2d;
+          border: 1px solid #44475a;
           padding: 15px;
           border-radius: 4px;
           margin-top: 10px;
@@ -421,9 +423,9 @@ function AuthorReviewsScreen({ currentUser }) {
         .response-form textarea {
           width: 100%;
           padding: 10px;
-          border: 1px solid #ddd;
+          border: 1px solid #44475a;
           border-radius: 4px;
-          font-family: Arial, sans-serif;
+          font-family: inherit;
           resize: vertical;
           margin-bottom: 10px;
         }
@@ -434,8 +436,8 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .btn-submit-response {
-          background-color: #4CAF50;
-          color: white;
+          background-color: #50fa7b;
+          color: #23232e;
           border: none;
           padding: 8px 16px;
           border-radius: 4px;
@@ -444,7 +446,7 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .btn-submit-response:hover {
-          background-color: #45a049;
+          background-color: #69ff94;
         }
 
         .btn-submit-response:disabled {
@@ -453,8 +455,8 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .btn-flag-review {
-          background-color: #ff9800;
-          color: white;
+          background-color: #ffb86c;
+          color: #23232e;
           border: none;
           padding: 8px 16px;
           border-radius: 4px;
@@ -463,7 +465,7 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .btn-flag-review:hover {
-          background-color: #e68900;
+          background-color: #ffca8a;
         }
 
         .flag-modal {
@@ -480,7 +482,8 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .flag-modal-content {
-          background-color: white;
+          background-color: #292a2d;
+          color: #e6e6e6;
           padding: 20px;
           border-radius: 8px;
           max-width: 400px;
@@ -494,10 +497,12 @@ function AuthorReviewsScreen({ currentUser }) {
         .flag-modal-content textarea {
           width: 100%;
           padding: 10px;
-          border: 1px solid #ddd;
+          border: 1px solid #44475a;
           border-radius: 4px;
-          font-family: Arial, sans-serif;
+          font-family: inherit;
           margin-bottom: 10px;
+          background: #21222c;
+          color: #e6e6e6;
         }
 
         .flag-actions {
@@ -506,7 +511,7 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .btn-confirm-flag {
-          background-color: #ff6b6b;
+          background-color: #ff6188;
           color: white;
           border: none;
           padding: 8px 16px;
@@ -516,12 +521,12 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .btn-confirm-flag:hover {
-          background-color: #ff5252;
+          background-color: #ff7aa2;
         }
 
         .btn-cancel-flag {
-          background-color: #ddd;
-          color: #333;
+          background-color: #44475a;
+          color: #e6e6e6;
           border: none;
           padding: 8px 16px;
           border-radius: 4px;
@@ -530,12 +535,12 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .btn-cancel-flag:hover {
-          background-color: #ccc;
+          background-color: #6272a4;
         }
 
         .btn-toggle-response {
-          background-color: #2196F3;
-          color: white;
+          background-color: #6272a4;
+          color: #e6e6e6;
           border: none;
           padding: 8px 16px;
           border-radius: 4px;
@@ -544,7 +549,7 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .btn-toggle-response:hover {
-          background-color: #0b7dda;
+          background-color: #7385b8;
         }
 
         .loading,
@@ -556,15 +561,15 @@ function AuthorReviewsScreen({ currentUser }) {
         }
 
         .error {
-          color: #f44336;
+          color: #ff6188;
         }
 
         .loading {
-          color: #666;
+          color: #b8b9c2;
         }
 
         .no-reviews {
-          color: #999;
+          color: #b8b9c2;
         }
       `}</style>
     </div>

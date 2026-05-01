@@ -12,14 +12,26 @@
       "publishDate": "2026-04-02",
       "approved": true,
       "status": "available",
-      "borrowCount": 1,
+      "borrowCount": 2,
       "borrowHistory": [
+        {
+          "username": "s1",
+          "borrowedAt": "2026-05-01T20:28:15.488Z",
+          "dueDate": "2026-05-11"
+        },
         {
           "username": "s1",
           "borrowedAt": "2026-05-01T20:04:42.291Z",
           "dueDate": "2026-05-11"
         }
-      ]
+      ],
+      "readingData": {
+        "s1": {
+          "bookmarkPage": 1,
+          "highlights": [],
+          "updatedAt": "2026-05-01T20:28:26.784Z"
+        }
+      }
     },
     {
       "id": 1777663362049,

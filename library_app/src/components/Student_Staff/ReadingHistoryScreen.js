@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import ReviewsDisplay from './ReviewsDisplay';
 
 function formatDate(dateValue) {
   if (!dateValue) return '-';
@@ -65,6 +66,7 @@ function ReadingHistoryScreen({ currentUser }) {
   const [author, setAuthor] = useState('');
   const [genre, setGenre] = useState('');
   const [range, setRange] = useState('all');
+  const [showReviewsBook, setShowReviewsBook] = useState(null);
 
   useEffect(() => {
     if (!currentUser?.username) {
@@ -215,6 +217,7 @@ function ReadingHistoryScreen({ currentUser }) {
               <th>Return Date</th>
               <th>Reading Duration</th>
               <th>Reading Progress</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -222,6 +225,11 @@ function ReadingHistoryScreen({ currentUser }) {
               const bookmarkPage = Number(entry?.progress?.bookmarkPage) || 1;
               const highlightsCount = Number(entry?.progress?.highlightsCount) || 0;
               const lastReadAt = entry?.progress?.lastReadAt;
+              const reviewBook = {
+                id: entry.bookId,
+                title: entry.bookTitle,
+                authorFullName: entry.author,
+              };
 
               return (
                 <tr key={entry.id || `${entry.bookId}-${entry.borrowDate}`}>
@@ -236,11 +244,35 @@ function ReadingHistoryScreen({ currentUser }) {
                     <div>Highlights: {highlightsCount}</div>
                     <div>Last read: {formatDate(lastReadAt)}</div>
                   </td>
+                  <td>
+                    <button type="button" onClick={() => setShowReviewsBook(reviewBook)}>
+                      Review
+                    </button>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+      )}
+
+      {showReviewsBook && (
+        <div className="summary-modal">
+          <div className="summary-content reviews-modal-content">
+            <button
+              type="button"
+              className="modal-close-button"
+              onClick={() => setShowReviewsBook(null)}
+            >
+              Close
+            </button>
+            <ReviewsDisplay
+              book={showReviewsBook}
+              username={currentUser.username}
+              userRole={currentUser.role}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
