@@ -39,6 +39,106 @@ function validatePassword(password) {
   return password.length >= minLength && hasLetter && hasNumber;
 }
 
+const VALID_PROFILE_PICTURE_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+]);
+const MAX_PROFILE_PICTURE_BYTES = 2 * 1024 * 1024;
+
+function validateProfilePictureData(profilePicture) {
+  if (typeof profilePicture !== 'string' || !profilePicture.trim()) {
+    return '';
+  }
+
+  const trimmed = profilePicture.trim();
+  const match = trimmed.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/);
+
+  if (!match || !VALID_PROFILE_PICTURE_TYPES.has(match[1])) {
+    return null;
+  }
+
+  const base64Body = match[2];
+  const padding = base64Body.endsWith('==') ? 2 : base64Body.endsWith('=') ? 1 : 0;
+  const estimatedBytes = Math.floor((base64Body.length * 3) / 4) - padding;
+
+  if (estimatedBytes > MAX_PROFILE_PICTURE_BYTES) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+function buildUserAccountFromPayload(payload) {
+  const username = String(payload?.username || '').trim();
+  const fullName = String(payload?.fullName || '').trim();
+  const password = String(payload?.password || '');
+  const role = String(payload?.role || '').toLowerCase().trim();
+  const bio = typeof payload?.bio === 'string' ? payload.bio.trim() : '';
+  const employeeId = typeof payload?.employeeId === 'string' ? payload.employeeId.trim() : '';
+  const profilePictureInput = payload?.profilePicture;
+  const profilePicture = validateProfilePictureData(profilePictureInput);
+
+  if (!username || !fullName || !password || !role) {
+    return { error: 'Missing required fields.' };
+  }
+
+  if (!VALID_USER_ROLES.includes(role)) {
+    return { error: 'Invalid role selected.' };
+  }
+
+  if (!validatePassword(password)) {
+    return {
+      error: 'Password must be at least 8 characters, include a letter and a number.',
+    };
+  }
+
+  if (typeof profilePictureInput === 'string' && profilePictureInput.trim() && profilePicture === null) {
+    return {
+      error: 'Profile picture must be a JPG, PNG, GIF, or WEBP image under 2 MB.',
+    };
+  }
+
+  const user = {
+    username,
+    fullName,
+    password,
+    role,
+    status: 'active',
+  };
+
+  if (role === 'author' && bio) {
+    user.bio = bio;
+  }
+  if (role === 'librarian' && employeeId) {
+    user.employeeId = employeeId;
+  }
+  if (profilePicture) {
+    user.profilePicture = profilePicture;
+  }
+
+  return { user };
+}
+
+function persistCreatedUserAccount(user) {
+  const users = readUsers();
+  if (users.some((entry) => entry.username === user.username)) {
+    return { error: 'Username already exists.' };
+  }
+
+  users.push(user);
+  writeUsers(users);
+
+  const notifications = readNotifications();
+  ensureUserNotifications(notifications, user.username);
+  writeNotifications(notifications);
+
+  addNotificationForRole('librarian', 'accountUpdates', `New user account created: ${user.username} (${user.role}).`);
+
+  return { user };
+}
+
 // Notification helpers
 
 function createNotificationBuckets() {
@@ -383,6 +483,7 @@ function normalizeUserRecord(user) {
       ? String(user.status).toLowerCase()
       : 'active',
     lastLoginAt: typeof user.lastLoginAt === 'string' ? user.lastLoginAt : '',
+    profilePicture: typeof user.profilePicture === 'string' ? user.profilePicture : '',
   };
 }
 
@@ -426,6 +527,7 @@ function toManageableUserView(user, books = null) {
     status: normalized.status,
     employeeId: normalized.employeeId || '',
     bio: normalized.bio || '',
+    profilePicture: normalized.profilePicture || '',
     activity: {
       lastLoginAt: normalized.lastLoginAt || null,
       borrowedBooksCount: activity.currentlyBorrowedCount,
@@ -799,26 +901,41 @@ function canUserReviewBook(username, bookId) {
 
 // Ignore already taken care
 app.post('/api/register', (req, res) => {
-  const { username, fullName, password, role, bio, employeeId } = req.body;
-  if (!username || !fullName || !password || !role) {
-    return res.status(400).json({ error: 'Missing required fields.' });
-  }
-  const users = readUsers();
-  if (users.some(u => u.username === username)) {
-    return res.status(409).json({ error: 'Username already exists.' });
-  }
-  const newUser = { username, fullName, password, role };
-  if (role === 'author' && bio) newUser.bio = bio;
-  if (role === 'librarian' && employeeId) newUser.employeeId = employeeId;
-  users.push(newUser);
-  writeUsers(users);
+  const creationResult = buildUserAccountFromPayload(req.body);
 
-  const notifications = readNotifications();
-  ensureUserNotifications(notifications, username);
-  writeNotifications(notifications);
+  if (creationResult.error) {
+    return res.status(400).json({ error: creationResult.error });
+  }
 
-  addNotificationForRole('librarian', 'accountUpdates', `New user account created: ${username} (${role}).`);
-  res.json({ message: 'Registration successful!' });
+  const persistedResult = persistCreatedUserAccount(creationResult.user);
+
+  if (persistedResult.error) {
+    return res.status(409).json({ error: persistedResult.error });
+  }
+
+  res.json({
+    message: 'Registration successful!',
+    user: toManageableUserView(persistedResult.user, readBooks()),
+  });
+});
+
+app.post('/api/users', (req, res) => {
+  const creationResult = buildUserAccountFromPayload(req.body);
+
+  if (creationResult.error) {
+    return res.status(400).json({ error: creationResult.error });
+  }
+
+  const persistedResult = persistCreatedUserAccount(creationResult.user);
+
+  if (persistedResult.error) {
+    return res.status(409).json({ error: persistedResult.error });
+  }
+
+  res.status(201).json({
+    message: 'User account created successfully.',
+    user: toManageableUserView(persistedResult.user, readBooks()),
+  });
 });
 
 app.post('/api/login', (req, res) => {
@@ -846,7 +963,7 @@ app.post('/api/login', (req, res) => {
 
 
 app.post('/api/profile/update', (req, res) => {
-  const { username, role, currentPassword, fullName, password, employeeId, bio } = req.body;
+  const { username, role, currentPassword, fullName, password, employeeId, bio, profilePicture } = req.body;
 
   if (!username || !role || !currentPassword) {
     return res.status(400).json({ error: 'username, role, and currentPassword are required.' });
@@ -886,13 +1003,25 @@ app.post('/api/profile/update', (req, res) => {
   const nextBio = isAuthor
     ? (typeof bio === 'string' ? bio.trim() : (user.bio || ''))
     : undefined;
+  const nextProfilePictureInput = typeof profilePicture === 'string' ? profilePicture : undefined;
+  const nextProfilePicture = typeof nextProfilePictureInput === 'undefined'
+    ? (user.profilePicture || '')
+    : validateProfilePictureData(nextProfilePictureInput);
+
+  if (typeof nextProfilePictureInput === 'string' && nextProfilePictureInput.trim() && nextProfilePicture === null) {
+    return res.status(400).json({
+      error: 'Profile picture must be a JPG, PNG, GIF, or WEBP image under 2 MB.',
+    });
+  }
 
   const hasFullNameChange = nextFullName !== user.fullName;
   const hasPasswordChange = wantsPasswordChange && password !== user.password;
   const hasEmployeeIdChange = isLibrarian && nextEmployeeId !== (user.employeeId || '');
   const hasBioChange = isAuthor && nextBio !== (user.bio || '');
+  const hasProfilePictureChange = typeof nextProfilePictureInput === 'string'
+    && nextProfilePicture !== (user.profilePicture || '');
 
-  if (!hasFullNameChange && !hasPasswordChange && !hasEmployeeIdChange && !hasBioChange) {
+  if (!hasFullNameChange && !hasPasswordChange && !hasEmployeeIdChange && !hasBioChange && !hasProfilePictureChange) {
     return res.status(400).json({ error: 'No profile changes detected.' });
   }
 
@@ -906,6 +1035,9 @@ app.post('/api/profile/update', (req, res) => {
   if (isAuthor) {
     user.bio = nextBio;
   }
+  if (hasProfilePictureChange) {
+    user.profilePicture = nextProfilePicture || '';
+  }
 
   users[userIndex] = user;
   writeUsers(users);
@@ -915,6 +1047,7 @@ app.post('/api/profile/update', (req, res) => {
   if (hasPasswordChange) changedFields.push('Password');
   if (hasEmployeeIdChange) changedFields.push('Employee ID');
   if (hasBioChange) changedFields.push('Bio');
+  if (hasProfilePictureChange) changedFields.push('Profile Picture');
 
   addNotificationForRole(
     'librarian',

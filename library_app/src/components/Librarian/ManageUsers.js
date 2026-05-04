@@ -1,7 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import '../../App.css';
 
-const ManageUsers = () => {
+const EMPTY_NEW_USER = {
+  username: '',
+  fullName: '',
+  password: '',
+  role: 'student',
+  bio: '',
+  employeeId: '',
+};
+
+const ManageUsers = ({ currentUser }) => {
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -11,6 +20,7 @@ const ManageUsers = () => {
   const [selectedUserIds, setSelectedUserIds] = useState([]);
   const [bulkAction, setBulkAction] = useState('deactivate');
   const [bulkRole, setBulkRole] = useState('student');
+  const [newUser, setNewUser] = useState(EMPTY_NEW_USER);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -40,6 +50,8 @@ const ManageUsers = () => {
     fetchUsers();
   }, []);
 
+  const isSelfManagedUser = (user) => Boolean(currentUser?.username && user?.username === currentUser.username);
+
   const handleSearch = (event) => {
     setSearchTerm(event.target.value);
   };
@@ -62,8 +74,11 @@ const ManageUsers = () => {
     return matchesSearch && matchesStatus && matchesRole;
   });
 
+  const selectableVisibleUsers = filteredUsers.filter((user) => !isSelfManagedUser(user));
+
   const allVisibleSelected =
-    filteredUsers.length > 0 && filteredUsers.every((user) => selectedUserIds.includes(user.id));
+    selectableVisibleUsers.length > 0 &&
+    selectableVisibleUsers.every((user) => selectedUserIds.includes(user.id));
 
   const toggleUserSelection = (userId) => {
     setSelectedUserIds((prev) => {
@@ -76,7 +91,7 @@ const ManageUsers = () => {
   };
 
   const toggleSelectAllVisible = () => {
-    const visibleIds = filteredUsers.map((user) => user.id);
+    const visibleIds = selectableVisibleUsers.map((user) => user.id);
     const areAllSelected = visibleIds.every((id) => selectedUserIds.includes(id));
 
     if (areAllSelected) {
@@ -100,7 +115,73 @@ const ManageUsers = () => {
     return date.toLocaleString();
   };
 
+  const handleNewUserChange = (event) => {
+    const { name, value } = event.target;
+    setNewUser((prev) => ({ ...prev, [name]: value }));
+    setError('');
+  };
+
+  const handleCreateUser = () => {
+    const username = String(newUser.username || '').trim();
+    const fullName = String(newUser.fullName || '').trim();
+    const password = String(newUser.password || '');
+    const role = String(newUser.role || '').toLowerCase().trim();
+
+    if (!username || !fullName || !password || !role) {
+      setError('Username, full name, password, and role are required.');
+      return;
+    }
+
+    if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      setError('Password must be at least 8 characters, include a letter and a number.');
+      return;
+    }
+
+    if (!['student', 'staff', 'author', 'librarian'].includes(role)) {
+      setError('Invalid role selected.');
+      return;
+    }
+
+    setError('');
+
+    fetch('http://localhost:4000/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username,
+        fullName,
+        password,
+        role,
+        bio: role === 'author' ? newUser.bio : undefined,
+        employeeId: role === 'librarian' ? newUser.employeeId : undefined,
+      }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          return response.json().then((data) => {
+            throw new Error(data.error || 'Failed to create user');
+          });
+        }
+
+        return response.json();
+      })
+      .then((data) => {
+        setUsers((prevUsers) => [data.user, ...prevUsers]);
+        setNewUser(EMPTY_NEW_USER);
+        setSelectedUserIds([]);
+      })
+      .catch((createError) => {
+        console.error('Error creating user:', createError);
+        setError(createError.message || 'Failed to create user.');
+      });
+  };
+
   const handleStatusChange = (user, nextStatus) => {
+    if (isSelfManagedUser(user)) {
+      setError('Use Manage Profile for your own account changes.');
+      return;
+    }
+
     const actionLabel = nextStatus === 'deactivated' ? 'deactivate' : 'reactivate';
     if (!window.confirm(`Are you sure you want to ${actionLabel} ${user.username}?`)) {
       return;
@@ -130,7 +211,12 @@ const ManageUsers = () => {
   };
 
   const handleBulkAction = () => {
-    if (selectedUserIds.length === 0) {
+    const eligibleUserIds = selectedUserIds.filter((id) => {
+      const user = users.find((entry) => entry.id === id);
+      return user && !isSelfManagedUser(user);
+    });
+
+    if (eligibleUserIds.length === 0) {
       setError('Select at least one user for bulk action.');
       return;
     }
@@ -138,7 +224,7 @@ const ManageUsers = () => {
     const actionDescription =
       bulkAction === 'update-role' ? `update role to ${bulkRole}` : bulkAction;
 
-    if (!window.confirm(`Confirm bulk action: ${actionDescription} for ${selectedUserIds.length} user(s)?`)) {
+    if (!window.confirm(`Confirm bulk action: ${actionDescription} for ${eligibleUserIds.length} user(s)?`)) {
       return;
     }
 
@@ -147,7 +233,7 @@ const ManageUsers = () => {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        userIds: selectedUserIds,
+        userIds: eligibleUserIds,
         action: bulkAction,
         updates: bulkAction === 'update-role' ? { role: bulkRole } : undefined,
       }),
@@ -171,6 +257,11 @@ const ManageUsers = () => {
 
   const handleSaveEdit = () => {
     if (!editingUser) {
+      return;
+    }
+
+    if (isSelfManagedUser(editingUser)) {
+      setError('Use Manage Profile for your own account changes.');
       return;
     }
 
@@ -224,7 +315,62 @@ const ManageUsers = () => {
   return (
     <div className="manage-users">
       <h1>Manage Users</h1>
+      <p className="section-intro">Create accounts, manage roles, and filter librarian records from this screen.</p>
       {error && <p className="error">{error}</p>}
+
+      <div className="manage-users-panel">
+        <h2>Add New User</h2>
+        <div className="filters">
+          <input
+            type="text"
+            name="username"
+            placeholder="Username"
+            value={newUser.username}
+            onChange={handleNewUserChange}
+          />
+          <input
+            type="text"
+            name="fullName"
+            placeholder="Full name"
+            value={newUser.fullName}
+            onChange={handleNewUserChange}
+          />
+          <input
+            type="password"
+            name="password"
+            placeholder="Temporary password"
+            value={newUser.password}
+            onChange={handleNewUserChange}
+          />
+          <select name="role" value={newUser.role} onChange={handleNewUserChange}>
+            <option value="student">Student</option>
+            <option value="staff">Staff</option>
+            <option value="author">Author</option>
+            <option value="librarian">Librarian</option>
+          </select>
+        </div>
+        <div className="filters">
+          {newUser.role === 'author' && (
+            <input
+              type="text"
+              name="bio"
+              placeholder="Author bio (optional)"
+              value={newUser.bio}
+              onChange={handleNewUserChange}
+            />
+          )}
+          {newUser.role === 'librarian' && (
+            <input
+              type="text"
+              name="employeeId"
+              placeholder="Employee ID (optional)"
+              value={newUser.employeeId}
+              onChange={handleNewUserChange}
+            />
+          )}
+          <button type="button" onClick={handleCreateUser}>Create User</button>
+        </div>
+      </div>
 
       <div className="filters">
         <input
@@ -312,18 +458,15 @@ const ManageUsers = () => {
               <td>{user.activity?.totalBorrowedCount ?? 0}</td>
               <td>
                 <button type="button" onClick={() => setViewingUser(user)}>View</button>
-                <button type="button" onClick={() => setEditingUser(user)}>Edit</button>
+                <button type="button" onClick={() => setEditingUser(user)} disabled={isSelfManagedUser(user)}>Edit</button>
                 <button
                   type="button"
-                  onClick={() =>
-                    handleStatusChange(
-                      user,
-                      user.status === 'active' ? 'deactivated' : 'active'
-                    )
-                  }
+                  onClick={() => handleStatusChange(user, user.status === 'active' ? 'deactivated' : 'active')}
+                  disabled={isSelfManagedUser(user)}
                 >
                   {user.status === 'active' ? 'Deactivate' : 'Reactivate'}
                 </button>
+                {isSelfManagedUser(user) && <span className="self-account-tag">Manage in profile</span>}
               </td>
             </tr>
           ))}
@@ -362,6 +505,7 @@ const ManageUsers = () => {
               Role:
               <select
                 value={editingUser.role}
+                disabled={isSelfManagedUser(editingUser)}
                 onChange={(event) =>
                   setEditingUser({ ...editingUser, role: event.target.value.toLowerCase() })
                 }
@@ -376,6 +520,7 @@ const ManageUsers = () => {
               Status:
               <select
                 value={editingUser.status}
+                disabled={isSelfManagedUser(editingUser)}
                 onChange={(event) => setEditingUser({ ...editingUser, status: event.target.value })}
               >
                 <option value="active">Active</option>

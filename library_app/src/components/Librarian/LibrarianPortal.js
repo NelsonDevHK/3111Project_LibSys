@@ -24,7 +24,7 @@ function LibrarianPortal({ currentUser, onLogout, onProfileUpdated }) {
         onProfileUpdated={onProfileUpdated}
         onForceLogout={onLogout}
       />
-      <ManageUsers />
+      <ManageUsers currentUser={currentUser} />
       <BorrowedBooksRecord />
     </div>
   );

@@ -11,6 +11,37 @@ const CATEGORY_LABELS = {
 	other: 'Other Announcements',
 };
 
+const CATEGORY_PRIORITY = {
+	newSubmissions: 5,
+	accountUpdates: 4,
+	bookRejectionUpdates: 3,
+	bookApprovalUpdates: 2,
+	dueReminders: 2,
+	bookDeletionNotices: 1,
+	other: 0,
+};
+
+function getNotificationPriority(item) {
+	if (!item) {
+		return 0;
+	}
+
+	let score = CATEGORY_PRIORITY[item.category] || 0;
+	if (item.unread) {
+		score += 2;
+	}
+	if (item.archived) {
+		score -= 5;
+	}
+
+	const message = String(item.message || '').toLowerCase();
+	if (message.includes('urgent') || message.includes('special request') || message.includes('profile update')) {
+		score += 3;
+	}
+
+	return score;
+}
+
 function NotificationBoard({ currentUser }) {
 	const [categories, setCategories] = useState({});
 	const [unreadCount, setUnreadCount] = useState(0);
@@ -53,8 +84,13 @@ function NotificationBoard({ currentUser }) {
 
 	const visibleCategoryKeys = useMemo(() => {
 		const keys = Object.keys(categories || {});
-		if (filterCategory === 'all') return keys;
-		return keys.filter((key) => key === filterCategory);
+		if (filterCategory !== 'all') return keys.filter((key) => key === filterCategory);
+
+		return keys.sort((left, right) => {
+			const leftScore = Math.max(...((categories[left] || []).map(getNotificationPriority)), 0);
+			const rightScore = Math.max(...((categories[right] || []).map(getNotificationPriority)), 0);
+			return rightScore - leftScore;
+		});
 	}, [categories, filterCategory]);
 
 	const normalizedSearch = search.trim().toLowerCase();
@@ -131,6 +167,17 @@ function NotificationBoard({ currentUser }) {
 		[normalizedSearch, filterDate, filterUrgency]
 	);
 
+	const sortByPriority = useCallback((left, right) => {
+		const priorityDiff = getNotificationPriority(right) - getNotificationPriority(left);
+		if (priorityDiff !== 0) {
+			return priorityDiff;
+		}
+
+		const leftTime = new Date(left.timestamp || 0).getTime();
+		const rightTime = new Date(right.timestamp || 0).getTime();
+		return rightTime - leftTime;
+	}, []);
+
 	return (
 		<section className="notification-board">
 			<div className="notification-board-header">
@@ -143,10 +190,10 @@ function NotificationBoard({ currentUser }) {
 					type="text"
 					value={search}
 					onChange={(event) => setSearch(event.target.value)}
-					placeholder="Search notifications"
+					placeholder="Search notifications by message"
 				/>
 				<select value={filterCategory} onChange={(event) => setFilterCategory(event.target.value)}>
-					<option value="all">All Categories</option>
+					<option value="all">All Types</option>
 					{Object.keys(categories).map((category) => (
 						<option key={category} value={category}>
 							{CATEGORY_LABELS[category] || category}
@@ -181,11 +228,7 @@ function NotificationBoard({ currentUser }) {
 			{visibleCategoryKeys.map((category) => {
 				const items = (categories[category] || [])
 					.filter(matchesFilters)
-					.sort((a, b) => {
-						const aTime = new Date(a.timestamp || 0).getTime();
-						const bTime = new Date(b.timestamp || 0).getTime();
-						return bTime - aTime;
-					});
+					.sort(sortByPriority);
 
 				const activeItems = items.filter((item) => !item.archived);
 				const archivedItems = items.filter((item) => item.archived);
@@ -201,8 +244,12 @@ function NotificationBoard({ currentUser }) {
 						<div className="notification-list">
 							{activeItems.length === 0 && <p className="notification-empty">No active notifications.</p>}
 							{activeItems.map((item) => (
-								<div key={item.id} className={`notification-item ${item.unread ? 'unread' : 'read'}`}>
+								<div
+									key={item.id}
+									className={`notification-item ${item.unread ? 'unread' : 'read'} ${getNotificationPriority(item) >= 4 ? 'priority-notification' : ''}`}
+								>
 									<div className="notification-item-copy">
+										{getNotificationPriority(item) >= 4 && <span className="notification-priority-pill">Priority</span>}
 										<p>{renderMessage(item)}</p>
 										<p className="notification-time">{new Date(item.timestamp).toLocaleString()}</p>
 									</div>
@@ -229,8 +276,12 @@ function NotificationBoard({ currentUser }) {
 								<div className="notification-list">
 									{archivedItems.length === 0 && <p className="notification-empty">No archived notifications.</p>}
 									{archivedItems.map((item) => (
-										<div key={item.id} className={`notification-item ${item.unread ? 'unread' : 'read'}`}>
+										<div
+											key={item.id}
+											className={`notification-item ${item.unread ? 'unread' : 'read'} ${getNotificationPriority(item) >= 4 ? 'priority-notification' : ''}`}
+										>
 											<div className="notification-item-copy">
+												{getNotificationPriority(item) >= 4 && <span className="notification-priority-pill">Priority</span>}
 												<p>{renderMessage(item)}</p>
 												<p className="notification-time">{new Date(item.timestamp).toLocaleString()}</p>
 											</div>

@@ -28,6 +28,196 @@
   color: #61dafb;
 }
 
+.section-intro,
+.manage-users-panel,
+.manage-profile-box,
+.borrowed-books-record,
+.notification-board {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.manage-users-panel,
+.manage-profile-box form,
+.notification-board,
+.borrowed-books-record {
+  background: #ffffff;
+  border: 1px solid #dde3ea;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 18px 40px rgba(23, 32, 46, 0.08);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.filters input,
+.filters select,
+.manage-profile-box input,
+.manage-profile-box select,
+.manage-profile-box textarea,
+.manage-users-panel input,
+.manage-users-panel select {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #c7d0db;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.notification-board-header,
+.manage-users h1,
+.borrowed-books-record h1 {
+  margin-bottom: 16px;
+}
+
+.notification-unread-pill,
+.self-account-tag,
+.notification-priority-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.notification-unread-pill {
+  background: #e8f0ff;
+  color: #1f4ba8;
+}
+
+.notification-priority-pill {
+  background: #ffe8cc;
+  color: #a54b00;
+  margin-bottom: 8px;
+}
+
+.self-account-tag {
+  background: #eef3f8;
+  color: #394a5e;
+  margin-left: 8px;
+}
+
+.notification-item {
+  border: 1px solid #dbe2ea;
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 12px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.notification-item.unread {
+  background: #f6f9ff;
+}
+
+.notification-item.priority-notification {
+  border-color: #ffb15a;
+  box-shadow: 0 8px 20px rgba(255, 157, 61, 0.12);
+}
+
+.notification-item-copy {
+  flex: 1;
+}
+
+.notification-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.overdue-row {
+  background: #fff2f2;
+  color: #b42318;
+}
+
+.overdue-row td {
+  color: #b42318;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .notification-item {
+    flex-direction: column;
+  }
+
+  .filters {
+    flex-direction: column;
+  }
+
+  .filters > * {
+    width: 100%;
+  }
+}
+
+/* Ensure export buttons in Borrowed Books Record match other control sizes */
+.borrowed-books-record .filters button {
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 1rem;
+  border-radius: 10px;
+}
+
+/* Dark-mode overrides when inside a portal (keep consistent with other portals) */
+.portal .manage-users-panel,
+.portal .manage-profile-box,
+.portal .borrowed-books-record,
+.portal .notification-board,
+.portal .manage-profile-box form {
+  background: #292a2d;
+  border-color: #44475a;
+  color: #e6e6e6;
+  box-shadow: none;
+}
+
+.portal .manage-users-panel h2,
+.portal .manage-profile-box h3,
+.portal .borrowed-books-record h1,
+.portal .notification-board h3 {
+  color: #ffb86c;
+}
+
+.portal .filters input,
+.portal .filters select,
+.portal .manage-profile-box input,
+.portal .manage-profile-box textarea {
+  background: #21222c;
+  color: #e6e6e6;
+  border: 1px solid #44475a;
+}
+
+.portal .notification-item {
+  background: #23232e;
+  border-color: #3a3a45;
+}
+
+.portal .notification-item.unread {
+  background: #2a2a32;
+}
+
+.portal .notification-item.priority-notification {
+  border-color: #ffb86c;
+}
+
+.portal .manage-users-panel button,
+.portal .manage-profile-box button,
+.portal .borrowed-books-record button {
+  background: #ffb86c;
+  color: #292a2d;
+}
+
+.portal .overdue-row {
+  background: #3a1212;
+}
+
+
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);

@@ -1,4 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+
+const MAX_PROFILE_PICTURE_SIZE = 2 * 1024 * 1024;
+const PROFILE_PICTURE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 function validatePassword(password) {
 	const minLength = 8;
@@ -23,10 +26,15 @@ function getPasswordStrength(password) {
 	return { label: 'Strong', score, className: 'strength-strong' };
 }
 
+function getProfilePicturePreview(profilePicture) {
+	return typeof profilePicture === 'string' && profilePicture ? profilePicture : '';
+}
+
 function ManageProfileScreen({ currentUser, onProfileUpdated, onForceLogout }) {
 	const [fullName, setFullName] = useState(currentUser?.fullName || '');
 	const [employeeId, setEmployeeId] = useState(currentUser?.employeeId || '');
 	const [bio, setBio] = useState(currentUser?.bio || '');
+	const [profilePicture, setProfilePicture] = useState(currentUser?.profilePicture || '');
 	const [currentPassword, setCurrentPassword] = useState('');
 	const [newPassword, setNewPassword] = useState('');
 	const [confirmPassword, setConfirmPassword] = useState('');
@@ -34,20 +42,67 @@ function ManageProfileScreen({ currentUser, onProfileUpdated, onForceLogout }) {
 	const [feedbackType, setFeedbackType] = useState('');
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [showPasswords, setShowPasswords] = useState(false);
+	const [profilePictureError, setProfilePictureError] = useState('');
 
 	const isLibrarian = currentUser?.role === 'librarian';
 	const isAuthor = currentUser?.role === 'author';
 	const strength = useMemo(() => getPasswordStrength(newPassword), [newPassword]);
 
+	useEffect(() => {
+		setFullName(currentUser?.fullName || '');
+		setEmployeeId(currentUser?.employeeId || '');
+		setBio(currentUser?.bio || '');
+		setProfilePicture(currentUser?.profilePicture || '');
+		setCurrentPassword('');
+		setNewPassword('');
+		setConfirmPassword('');
+		setFeedbackMessage('');
+		setFeedbackType('');
+		setProfilePictureError('');
+	}, [currentUser]);
+
 	const hasChanges =
 		fullName.trim() !== (currentUser?.fullName || '') ||
 		(isLibrarian && employeeId.trim() !== (currentUser?.employeeId || '')) ||
 		(isAuthor && bio.trim() !== (currentUser?.bio || '')) ||
-		newPassword.length > 0;
+		newPassword.length > 0 ||
+		profilePicture !== (currentUser?.profilePicture || '');
 
 	const clearFeedback = () => {
 		setFeedbackMessage('');
 		setFeedbackType('');
+	};
+
+	const handleProfilePictureChange = (event) => {
+		const file = event.target.files?.[0];
+		setProfilePictureError('');
+
+		if (!file) {
+			setProfilePicture(currentUser?.profilePicture || '');
+			return;
+		}
+
+		if (!PROFILE_PICTURE_TYPES.includes(file.type)) {
+			setProfilePicture(currentUser?.profilePicture || '');
+			setProfilePictureError('Profile picture must be a JPG, PNG, WEBP, or GIF image.');
+			return;
+		}
+
+		if (file.size > MAX_PROFILE_PICTURE_SIZE) {
+			setProfilePicture(currentUser?.profilePicture || '');
+			setProfilePictureError('Profile picture must be smaller than 2 MB.');
+			return;
+		}
+
+		const reader = new FileReader();
+		reader.onload = () => {
+			setProfilePicture(typeof reader.result === 'string' ? reader.result : '');
+		};
+		reader.onerror = () => {
+			setProfilePicture(currentUser?.profilePicture || '');
+			setProfilePictureError('Unable to read the selected image.');
+		};
+		reader.readAsDataURL(file);
 	};
 
 	const handleSubmit = async (e) => {
@@ -68,6 +123,12 @@ function ManageProfileScreen({ currentUser, onProfileUpdated, onForceLogout }) {
 
 		if (!currentPassword) {
 			setFeedbackMessage('Please re-enter your current password to save changes.');
+			setFeedbackType('error');
+			return;
+		}
+
+		if (profilePictureError) {
+			setFeedbackMessage(profilePictureError);
 			setFeedbackType('error');
 			return;
 		}
@@ -100,6 +161,9 @@ function ManageProfileScreen({ currentUser, onProfileUpdated, onForceLogout }) {
 			}
 			if (isAuthor) {
 				payload.bio = bio.trim();
+			}
+			if (profilePicture !== (currentUser?.profilePicture || '')) {
+				payload.profilePicture = profilePicture;
 			}
 			const res = await fetch('http://localhost:4000/api/profile/update', {
 				method: 'POST',
@@ -181,6 +245,22 @@ function ManageProfileScreen({ currentUser, onProfileUpdated, onForceLogout }) {
 						/>
 					</>
 				)}
+
+				<label htmlFor="profilePicture">Profile Picture (optional)</label>
+				{getProfilePicturePreview(profilePicture) && (
+					<img
+						src={getProfilePicturePreview(profilePicture)}
+						alt={`${currentUser?.fullName || currentUser?.username || 'Profile'} avatar`}
+						style={{ width: '96px', height: '96px', objectFit: 'cover', borderRadius: '50%', marginBottom: '8px' }}
+					/>
+				)}
+				<input
+					id="profilePicture"
+					type="file"
+					accept="image/jpeg,image/png,image/webp,image/gif"
+					onChange={handleProfilePictureChange}
+				/>
+				{profilePictureError && <p className="error">{profilePictureError}</p>}
 
 				<div className="password-strength-row" style={{ justifyContent: 'space-between' }}>
 					<span>Password fields</span>
