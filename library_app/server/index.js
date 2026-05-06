@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const { randomUUID } = require('crypto');
+const { generateBookSummary, generateBookSummaryFromPdf } = require('./LLM');
 
 // File paths
 const USERS_FILE = path.join(__dirname, 'users.json');
@@ -1591,6 +1592,11 @@ const MAX_COVER_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
 // Hard cap keeps uploads bounded before route logic runs.
 const upload = multer({ storage, fileFilter, limits: { fileSize: MAX_BOOK_FILE_SIZE_BYTES } });
+const summaryUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter,
+  limits: { fileSize: MAX_BOOK_FILE_SIZE_BYTES },
+});
 
 app.post('/api/publish',
     upload.fields([{ name: 'file', maxCount: 1 }, { name: 'cover', maxCount: 1 }]),
@@ -1783,7 +1789,7 @@ app.post('/api/book-requests/:id/review', (req, res) => {
   }
 });
 
-app.post('/api/book-requests/:id/upload', (req, res) => {
+app.post('/api/book-requests/:id/upload', async (req, res) => {
   try {
     const { id } = req.params;
     const { librarianUsername, description } = req.body || {};
@@ -1800,12 +1806,13 @@ app.post('/api/book-requests/:id/upload', (req, res) => {
     }
 
     const books = readBooks();
-    const generatedDescription = String(description || '').trim() || generateBookSummary(
-      requestEntry.title,
-      requestEntry.author,
-      requestEntry.genre,
-      requestEntry.reason
-    );
+    const generatedDescription = String(description || '').trim() || await generateBookSummary({
+      title: requestEntry.title,
+      author: requestEntry.author,
+      genre: requestEntry.genre,
+      summaryStyle: 'medium',
+      notes: requestEntry.reason,
+    });
     const newBook = {
       id: Date.now(),
       title: requestEntry.title,
@@ -2986,18 +2993,22 @@ app.delete('/api/reviews/:bookId/:reviewId/response/:responseId', (req, res) => 
 });
 
 // LLM-Based Summary Generation Endpoint
-// POST /api/generate-summary - Generate a book summary using LLM (placeholder implementation)
-app.post('/api/generate-summary', (req, res) => {
+// POST /api/generate-summary - Generate a book summary using LLM
+app.post('/api/generate-summary', summaryUpload.single('file'), async (req, res) => {
   try {
-    const { title, author, genre, reason } = req.body;
+    const { title, author, genre, summaryStyle } = req.body || {};
 
-    if (!title || !author) {
-      return res.status(400).json({ error: 'title and author are required.' });
+    if (!title || !genre || !req.file) {
+      return res.status(400).json({ error: 'title, genre, and file are required.' });
     }
 
-    // Placeholder LLM implementation
-    // In production, this would call an actual LLM API (OpenAI, Claude, etc.)
-    const summary = generateBookSummary(title, author, genre, reason);
+    const summary = await generateBookSummaryFromPdf({
+      title,
+      author,
+      genre,
+      summaryStyle,
+      pdfBuffer: req.file.buffer,
+    });
 
     res.json({ summary });
   } catch (err) {
@@ -3005,23 +3016,6 @@ app.post('/api/generate-summary', (req, res) => {
     res.status(500).json({ error: 'Failed to generate summary.' });
   }
 });
-
-// Helper function for generating book summaries
-// This is a placeholder implementation
-function generateBookSummary(title, author, genre, reason) {
-  // Basic summary generation logic
-  let summary = `"${title}" is a ${genre || 'fiction'} book by ${author}.\n\n`;
-  
-  if (reason && reason.trim()) {
-    summary += `Summary: ${reason}\n\n`;
-  }
-  
-  summary += `This book explores themes relevant to the ${genre || 'genre'} category `;
-  summary += `and offers readers a journey through compelling narratives and well-developed characters. `;
-  summary += `Perfect for anyone interested in ${genre || 'quality literature'}.`;
-  
-  return summary;
-}
 
 // Start the server
 app.listen(PORT, () => {

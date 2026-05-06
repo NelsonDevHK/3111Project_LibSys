@@ -516,6 +516,61 @@ button[type="submit"]:hover {
   gap: 12px;
 }
 
+.summary-helper-text {
+  margin-top: -8px;
+  margin-bottom: 20px;
+  color: #cfd5e1;
+  font-size: 0.96rem;
+}
+
+.publish-summary-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.ai-generate-button {
+  min-width: 220px;
+}
+
+.summary-finalized-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(79, 214, 176, 0.15);
+  color: #4fd6b0;
+  border: 1px solid rgba(79, 214, 176, 0.35);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.summary-modal-box {
+  max-width: 640px;
+}
+
+.summary-modal-box label {
+  color: #ffb86c;
+}
+
+.summary-style-row {
+  margin-bottom: 12px;
+}
+
+.summary-editor {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  margin-top: 6px;
+}
+
+.summary-loading {
+  color: #4fd6b0;
+  margin-bottom: 12px;
+}
+
 .cover-preview {
   display: flex;
   flex-direction: column;

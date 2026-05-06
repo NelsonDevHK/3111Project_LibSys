@@ -1,7 +1,12 @@
-import React, { useState, useEffect  } from 'react';
+import React, { useState, useEffect } from 'react';
 import ConfirmSubmitPage from './ConfirmSubmitPage';
 
 const GENRES = ['Fiction', 'Non-Fiction', 'Science', 'History'];
+const SUMMARY_STYLES = [
+  { value: 'short', label: 'Short' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'detailed', label: 'Detailed' },
+];
 const MAX_BOOK_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 const MAX_COVER_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
@@ -11,6 +16,7 @@ const PublishPage = ({ currentUser, onBookPublished }) => {
     authorUsername: currentUser?.username || '',
     genre: [],
     description: '',
+    summaryStyle: 'medium',
     file: null,
     cover: null,
   });
@@ -18,6 +24,11 @@ const PublishPage = ({ currentUser, onBookPublished }) => {
   const [messageType, setMessageType] = useState('');
   const [showConfirmPage, setShowConfirmPage] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryDraft, setSummaryDraft] = useState('');
+  const [summaryError, setSummaryError] = useState('');
+  const [summaryFinalized, setSummaryFinalized] = useState(false);
 
   useEffect(() => {
     setForm(f => ({ ...f, authorUsername: currentUser?.username || '' }));
@@ -80,13 +91,110 @@ const PublishPage = ({ currentUser, onBookPublished }) => {
         }
         return { ...f, genre: Array.from(genres) };
       });
+      setSummaryFinalized(false);
       return;
     }
 
-    setForm({
-      ...form,
+    setForm((current) => ({
+      ...current,
       [name]: files ? files[0] : value,
+    }));
+
+    if (name === 'title' || name === 'summaryStyle' || name === 'file') {
+      setSummaryFinalized(false);
+    }
+  };
+
+  const canGenerateSummary = Boolean(form.title.trim() && form.genre.length > 0);
+
+  const fetchSummaryDraft = async () => {
+    const formData = new FormData();
+    formData.append('title', form.title.trim());
+    formData.append('author', currentUser?.fullName || currentUser?.username || form.authorUsername || '');
+    formData.append('genre', form.genre.join(','));
+    formData.append('summaryStyle', form.summaryStyle);
+    formData.append('file', form.file);
+
+    const response = await fetch('http://localhost:4000/api/generate-summary', {
+      method: 'POST',
+      body: formData,
     });
+
+    if (!response.ok) {
+      throw new Error('Failed to generate summary.');
+    }
+
+    const data = await response.json();
+    return data.summary || '';
+  };
+
+  const handleOpenSummaryModal = async () => {
+    setMessage('');
+    setMessageType('');
+
+    if (!canGenerateSummary) {
+      setMessage('Enter a title, select at least one genre, and choose a PDF before generating a summary.');
+      setMessageType('error');
+      return;
+    }
+
+    if (!form.file) {
+      setMessage('Choose a PDF file before generating a summary.');
+      setMessageType('error');
+      return;
+    }
+
+    setSummaryModalOpen(true);
+    setSummaryLoading(true);
+    setSummaryError('');
+
+    try {
+      const summary = await fetchSummaryDraft();
+      setSummaryDraft(summary);
+    } catch (error) {
+      setSummaryError('Could not generate a summary right now. You can still type or edit one manually.');
+      setSummaryDraft(form.description || '');
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const handleRegenerateSummary = async () => {
+    setSummaryLoading(true);
+    setSummaryError('');
+
+    try {
+      const summary = await fetchSummaryDraft();
+      setSummaryDraft(summary);
+    } catch (error) {
+      setSummaryError('Could not regenerate the summary right now.');
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const handleFinalizeSummary = () => {
+    const refinedSummary = summaryDraft.trim();
+
+    if (!refinedSummary) {
+      setSummaryError('Please add a summary before finalizing it.');
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      description: refinedSummary,
+    }));
+    setSummaryFinalized(true);
+    setSummaryModalOpen(false);
+    setSummaryError('');
+    setMessage('Summary finalized and added to your draft.');
+    setMessageType('success');
+  };
+
+  const handleCloseSummaryModal = () => {
+    setSummaryModalOpen(false);
+    setSummaryError('');
   };
 
   const handleSubmit = (e) => {
@@ -168,10 +276,15 @@ const PublishPage = ({ currentUser, onBookPublished }) => {
           authorUsername: currentUser?.username || '',
           genre: [],
           description: '',
+          summaryStyle: 'medium',
           file: null,
           cover: null,
         });
         setShowConfirmPage(false);
+        setSummaryDraft('');
+        setSummaryFinalized(false);
+        setSummaryModalOpen(false);
+        setSummaryError('');
         // Clear saved draft after successful submission
         localStorage.removeItem(`publishDraft_${currentUser?.username}`);
         // Notify parent to refresh published books list
@@ -201,6 +314,7 @@ const PublishPage = ({ currentUser, onBookPublished }) => {
   return (
     <div className="portal">
       <h2>Publish a Book</h2>
+      <p className="summary-helper-text">Generate a summary from the uploaded PDF, edit it, and finalize it before you submit the book.</p>
       <form onSubmit={handleSubmit}>
         <div className="form-row">
           <label htmlFor="title">Title</label>
@@ -248,6 +362,23 @@ const PublishPage = ({ currentUser, onBookPublished }) => {
         </div>
 
         <div className="form-row">
+          <label htmlFor="summaryStyle">Summary Style</label>
+          <select
+            id="summaryStyle"
+            name="summaryStyle"
+            value={form.summaryStyle}
+            onChange={handleChange}
+            className="input"
+          >
+            {SUMMARY_STYLES.map((style) => (
+              <option key={style.value} value={style.value}>
+                {style.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-row">
           <label htmlFor="description">Description</label>
           <textarea
             id="description"
@@ -258,6 +389,17 @@ const PublishPage = ({ currentUser, onBookPublished }) => {
             className="input description-input"
             rows="5"
           />
+          <div className="publish-summary-actions">
+            <button
+              type="button"
+              className="button ai-generate-button"
+              onClick={handleOpenSummaryModal}
+              disabled={summaryLoading || !form.title.trim() || form.genre.length === 0 || !form.file}
+            >
+              {summaryLoading ? 'Generating...' : 'Generate Summary from PDF'}
+            </button>
+            {summaryFinalized && <span className="summary-finalized-badge">Summary finalized</span>}
+          </div>
         </div>
 
         <div className="form-row">
@@ -333,6 +475,74 @@ const PublishPage = ({ currentUser, onBookPublished }) => {
         <button type="submit" className="button">Submit for Approval</button>
       </form>
       {message && <p className={messageType === 'success' ? 'success' : 'error'}>{message}</p>}
+
+      {summaryModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-box summary-modal-box">
+            <h4>Generate and Refine Summary</h4>
+            <p>
+              Choose a style, generate a draft from the PDF text, and edit it before applying it to the description.
+            </p>
+
+            <div className="form-row summary-style-row">
+              <label htmlFor="modalSummaryStyle">Summary Style</label>
+              <select
+                id="modalSummaryStyle"
+                name="summaryStyle"
+                value={form.summaryStyle}
+                onChange={handleChange}
+                className="input"
+              >
+                {SUMMARY_STYLES.map((style) => (
+                  <option key={style.value} value={style.value}>
+                    {style.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {summaryLoading && <p className="summary-loading">Generating a summary draft...</p>}
+            {summaryError && <p className="error">{summaryError}</p>}
+
+            <label htmlFor="summaryDraft">Summary Draft</label>
+            <textarea
+              id="summaryDraft"
+              value={summaryDraft}
+              onChange={(e) => setSummaryDraft(e.target.value)}
+              className="input summary-editor"
+              rows="8"
+              placeholder="Generated summary will appear here. You can edit it before finalizing."
+              disabled={summaryLoading}
+            />
+
+            <div className="dialog-buttons">
+              <button
+                type="button"
+                className="button confirm-button"
+                onClick={handleFinalizeSummary}
+                disabled={summaryLoading}
+              >
+                Finalize Summary
+              </button>
+              <button
+                type="button"
+                className="button"
+                onClick={handleRegenerateSummary}
+                disabled={summaryLoading}
+              >
+                Regenerate
+              </button>
+              <button
+                type="button"
+                className="button cancel-button"
+                onClick={handleCloseSummaryModal}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
