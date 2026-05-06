@@ -2546,6 +2546,71 @@ app.get('/api/author-statistics/:username', (req, res) => {
   }
 });
 
+// GET /api/author-trends/:username - Fetch borrowing trends for author's published books
+app.get('/api/author-trends/:username', (req, res) => {
+  try {
+    const { username } = req.params;
+    const { period = 'monthly' } = req.query; // 'weekly' or 'monthly'
+    const publishedBooks = readPublishedBooks();
+    const authorBooks = publishedBooks[username] || {};
+    const readingHistory = readReadingHistory();
+
+    // Get author's book IDs
+    const authorBookIds = new Set();
+    Object.entries(authorBooks).forEach(([bookId, publishedBook]) => {
+      if (publishedBook.status === 'approved') {
+        authorBookIds.add(String(bookId));
+      }
+    });
+
+    // Build trends
+    const trends = {};
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    // Process reading history for all users
+    Object.entries(readingHistory).forEach(([historyUsername, entries]) => {
+      entries.forEach(entry => {
+        if (authorBookIds.has(String(entry.bookId))) {
+          const date = new Date(entry.borrowDate);
+          if (date >= sixMonthsAgo) {
+            let key;
+            if (period === 'weekly') {
+              const weekStart = new Date(date);
+              weekStart.setDate(date.getDate() - date.getDay());
+              key = weekStart.toISOString().split('T')[0];
+            } else {
+              key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            }
+
+            if (!trends[key]) {
+              trends[key] = { date: key, borrows: 0, reads: 0, returns: 0 };
+            }
+            trends[key].borrows += 1;
+            trends[key].reads += 1;
+
+            if (entry.returnDate) {
+              trends[key].returns += 1;
+            }
+          }
+        }
+      });
+    });
+
+    const trendArray = Object.values(trends)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    res.json({
+      period,
+      trends: trendArray,
+      authorBookCount: authorBookIds.size,
+    });
+  } catch (err) {
+    console.error('Error fetching author trends:', err);
+    res.status(500).json({ error: 'Failed to fetch author trends.' });
+  }
+});
+
 // Librarian Endpoints - Manage All Published Books
 // GET /api/librarian/published-books - Fetch all published books (across all authors)
 app.get('/api/librarian/published-books', (req, res) => {

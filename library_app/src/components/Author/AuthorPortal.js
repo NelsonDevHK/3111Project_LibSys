@@ -3,7 +3,7 @@ import PublishPage from './PublishPage';
 import ManageProfileScreen from '../ManageProfileScreen';
 import NotificationBoard from '../NotificationBoard';
 import PublishedBooksScreen from './PublishedBooksScreen';
-import AuthorStatisticsScreen from './AuthorStatisticsScreen';
+import StatsPage from './StatsPage';
 import AuthorReviewsScreen from './AuthorReviewsScreen';
 
 const AuthorPortal = ({ currentUser, onLogout, onProfileUpdated }) => {
@@ -22,7 +22,7 @@ const AuthorPortal = ({ currentUser, onLogout, onProfileUpdated }) => {
       </div>
       <p>Welcome, {currentUser.username}! This is your dashboard.</p>
       <NotificationBoard currentUser={currentUser} />
-        <AuthorStatisticsScreen currentUser={currentUser} />
+      <StatsPage currentUser={currentUser} />
       <AuthorReviewsScreen currentUser={currentUser} />
       <PublishedBooksScreen currentUser={currentUser} refreshKey={publishRefreshKey} />
       <PublishPage currentUser={currentUser} onBookPublished={handleBookPublished} />
