@@ -82,6 +82,14 @@
   "librarian1": {
     "newSubmissions": [
       {
+        "id": "cae32853-c7e7-4210-aba1-c63f8277ad55",
+        "category": "newSubmissions",
+        "message": "New submission: \"lkm;\" by author1.",
+        "timestamp": "2026-05-07T07:52:41.595Z",
+        "unread": true,
+        "archived": false
+      },
+      {
         "id": "a4258c30-6145-4716-abf1-aca5f5ac4c48",
         "category": "newSubmissions",
         "message": "New submission: \"juy6\" by author1.",
@@ -189,6 +197,14 @@
     "bookRejectionUpdates": [],
     "bookUpdates": [],
     "newSubmissions": [
+      {
+        "id": "03fc48bb-e691-4f11-99df-a6cd00f513df",
+        "category": "newSubmissions",
+        "message": "New submission: \"lkm;\" by author1.",
+        "timestamp": "2026-05-07T07:52:41.595Z",
+        "unread": true,
+        "archived": false
+      },
       {
         "id": "388ac50e-ce1c-40ca-a3d7-e72f01726e60",
         "category": "newSubmissions",

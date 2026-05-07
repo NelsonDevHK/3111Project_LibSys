@@ -3092,6 +3092,58 @@ app.delete('/api/published-books/:username/:bookId', (req, res) => {
   }
 });
 
+// POST /api/published-books/:username/bulk-delete - Delete multiple published books at once
+app.post('/api/published-books/:username/bulk-delete', (req, res) => {
+  try {
+    const { username } = req.params;
+    const { bookIds } = req.body || {};
+
+    if (!Array.isArray(bookIds) || bookIds.length === 0) {
+      return res.status(400).json({ error: 'bookIds array is required.' });
+    }
+
+    const publishedBooks = readPublishedBooks();
+    const authorBooks = ensureAuthorPublishedBooks(publishedBooks, username);
+
+    const books = readBooks();
+    const removed = [];
+    const notFound = [];
+
+    bookIds.forEach((rawId) => {
+      const id = String(rawId);
+      if (!authorBooks[id]) {
+        notFound.push(id);
+        return;
+      }
+
+      const bookTitle = authorBooks[id].title;
+      removed.push({ id, title: bookTitle });
+      delete authorBooks[id];
+
+      // Also remove from books.json if present
+      const libraryIndex = books.findIndex((b) => String(b.id) === String(id));
+      if (libraryIndex !== -1) {
+        const [removedLibraryBook] = books.splice(libraryIndex, 1);
+        if (removedLibraryBook?.borrowedBy) {
+          addNotificationForUser(
+            removedLibraryBook.borrowedBy,
+            'bookDeletionNotices',
+            `Book deletion notice: "${removedLibraryBook.title}" was deleted while it was borrowed.`
+          );
+        }
+      }
+    });
+
+    writePublishedBooks(publishedBooks);
+    writeBooks(books);
+
+    res.json({ message: 'Bulk delete completed.', removedCount: removed.length, removed, notFound });
+  } catch (err) {
+    console.error('Error performing bulk delete on published books:', err);
+    res.status(500).json({ error: 'Failed to perform bulk delete.' });
+  }
+});
+
 // End of Author helper
 
 

@@ -15,6 +15,8 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
   const [editForm, setEditForm] = useState({ title: '', genre: [], description: '' });
   const [showEditModal, setShowEditModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(null);
   const [readerBook, setReaderBook] = useState(null);
   const [readerPage, setReaderPage] = useState(1);
   const [readerNumPages, setReaderNumPages] = useState(0);
@@ -145,6 +147,29 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
     setDeleteConfirm(book);
   };
 
+  const toggleSelect = (bookId) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const id = String(bookId);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      if (books.length > 0 && prev.size === books.length) return new Set();
+      return new Set(books.map((b) => String(b.id)));
+    });
+  };
+
+  const handleBulkDeleteClick = () => {
+    if (selectedIds.size === 0) return;
+    const selectedBooks = books.filter((b) => selectedIds.has(String(b.id)));
+    setBulkDeleteConfirm(selectedBooks);
+  };
+
   // Handle delete confirmation
   const handleDeleteConfirm = async () => {
     try {
@@ -166,6 +191,36 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
     } catch (error) {
       console.error('Error deleting book:', error);
       setMessage('Error deleting book.');
+      setMessageType('error');
+    }
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    try {
+      const ids = Array.from(selectedIds);
+      const response = await fetch(
+        `http://localhost:4000/api/published-books/${currentUser?.username}/bulk-delete`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookIds: ids }),
+        }
+      );
+
+      if (response.ok) {
+        setMessage(`Deleted ${ids.length} book(s) successfully.`);
+        setMessageType('success');
+        setBulkDeleteConfirm(null);
+        setSelectedIds(new Set());
+        fetchPublishedBooks();
+      } else {
+        const data = await response.json();
+        setMessage(data.error || 'Failed to delete selected books.');
+        setMessageType('error');
+      }
+    } catch (error) {
+      console.error('Error bulk deleting books:', error);
+      setMessage('Error deleting selected books.');
       setMessageType('error');
     }
   };
@@ -204,82 +259,120 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
       {books.length === 0 ? (
         <p style={{ color: '#8f93a2' }}>No books published yet.</p>
       ) : (
-        <table className="published-books-table">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Genre</th>
-              <th>Status</th>
-              <th>Published Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {books.map(book => (
-              <tr key={String(book.id)}>
-                <td>{book.title}</td>
-                <td>{book.genre}</td>
-                <td>
-                  <span
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      backgroundColor: '#23232e',
-                      color: getStatusTextColor(book.status),
-                      fontWeight: '500',
-                      textTransform: 'capitalize',
-                    }}
-                  >
-                    {book.status}
-                  </span>
-                </td>
-                <td>{new Date(book.publishDate).toLocaleDateString()}</td>
-                <td>
-                  <button
-                    onClick={() => handleEditClick(book)}
-                    style={{
-                      marginRight: '8px',
-                      backgroundColor: '#6272a4',
-                      padding: '6px 12px',
-                      fontSize: '0.85rem',
-                      cursor: 'pointer',
-                    }}
-                    title='Edit book details'
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openReader(book)}
-                    disabled={!book.filePath}
-                    style={{
-                      marginRight: '8px',
-                      backgroundColor: book.filePath ? '#4fd6b0' : '#555a70',
-                      color: book.filePath ? '#23232e' : '#f2f2f2',
-                      padding: '6px 12px',
-                      fontSize: '0.85rem',
-                      opacity: book.filePath ? 1 : 0.65,
-                      cursor: book.filePath ? 'pointer' : 'not-allowed',
-                    }}
-                    title={book.filePath ? 'Open book PDF' : 'No PDF available for this book'}
-                  >
-                    Read Book
-                  </button>
-                  <button
-                    onClick={() => handleDeleteClick(book)}
-                    style={{
-                      backgroundColor: '#ff6188',
-                      padding: '6px 12px',
-                      fontSize: '0.85rem',
-                    }}
-                  >
-                    Delete
-                  </button>
-                </td>
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <label style={{ color: '#8f93a2' }}>
+              <input
+                type="checkbox"
+                checked={books.length > 0 && selectedIds.size === books.length}
+                onChange={toggleSelectAll}
+                style={{ marginRight: '8px' }}
+              />
+              Select all
+            </label>
+
+            <div>
+              <button
+                onClick={handleBulkDeleteClick}
+                disabled={selectedIds.size === 0}
+                style={{
+                  backgroundColor: '#ff6188',
+                  padding: '6px 12px',
+                  fontSize: '0.9rem',
+                  cursor: selectedIds.size === 0 ? 'not-allowed' : 'pointer',
+                }}
+                title={selectedIds.size === 0 ? 'Select books to delete' : 'Delete selected books'}
+              >
+                Bulk Delete ({selectedIds.size})
+              </button>
+            </div>
+          </div>
+
+          <table className="published-books-table">
+            <thead>
+              <tr>
+                <th style={{ width: '40px' }} />
+                <th>Title</th>
+                <th>Genre</th>
+                <th>Status</th>
+                <th>Published Date</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {books.map(book => (
+                <tr key={String(book.id)}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(String(book.id))}
+                      onChange={() => toggleSelect(book.id)}
+                    />
+                  </td>
+                  <td>{book.title}</td>
+                  <td>{book.genre}</td>
+                  <td>
+                    <span
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: '#23232e',
+                        color: getStatusTextColor(book.status),
+                        fontWeight: '500',
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      {book.status}
+                    </span>
+                  </td>
+                  <td>{new Date(book.publishDate).toLocaleDateString()}</td>
+                  <td>
+                    <button
+                      onClick={() => handleEditClick(book)}
+                      style={{
+                        marginRight: '8px',
+                        backgroundColor: '#6272a4',
+                        padding: '6px 12px',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                      }}
+                      title='Edit book details'
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openReader(book)}
+                      disabled={!book.filePath}
+                      style={{
+                        marginRight: '8px',
+                        backgroundColor: book.filePath ? '#4fd6b0' : '#555a70',
+                        color: book.filePath ? '#23232e' : '#f2f2f2',
+                        padding: '6px 12px',
+                        fontSize: '0.85rem',
+                        opacity: book.filePath ? 1 : 0.65,
+                        cursor: book.filePath ? 'pointer' : 'not-allowed',
+                      }}
+                      title={book.filePath ? 'Open book PDF' : 'No PDF available for this book'}
+                    >
+                      Read Book
+                    </button>
+                    <button
+                      onClick={() => handleDeleteClick(book)}
+                      style={{
+                        backgroundColor: '#ff6188',
+                        padding: '6px 12px',
+                        fontSize: '0.85rem',
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
 
       {/* Edit Modal */}
@@ -438,6 +531,48 @@ const PublishedBooksScreen = ({ currentUser, refreshKey }) => {
                 }}
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {bulkDeleteConfirm && bulkDeleteConfirm.length > 0 && (
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <h4 style={{ color: '#ff6188', marginTop: 0 }}>Confirm Bulk Deletion</h4>
+            <p>
+              Are you sure you want to delete {bulkDeleteConfirm.length} selected book(s)? This action cannot be undone.
+            </p>
+            <div style={{ maxHeight: '200px', overflow: 'auto', marginTop: '8px', color: '#e6e6e6' }}>
+              <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                {bulkDeleteConfirm.map((b) => (
+                  <li key={String(b.id)}>{b.title}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button
+                onClick={() => setBulkDeleteConfirm(null)}
+                style={{
+                  backgroundColor: '#6272a4',
+                  padding: '8px 16px',
+                  fontSize: '0.9rem',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkDeleteConfirm}
+                style={{
+                  backgroundColor: '#ff6188',
+                  padding: '8px 16px',
+                  fontSize: '0.9rem',
+                }}
+              >
+                Delete Selected
               </button>
             </div>
           </div>

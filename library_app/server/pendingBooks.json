@@ -11,6 +11,18 @@
       "coverPath": "",
       "publishDate": "2026-05-01",
       "approved": false
+    },
+    {
+      "id": 1778140361586,
+      "title": "lkm;",
+      "authorUsername": "author1",
+      "authorFullName": "Author One",
+      "genre": "Non-Fiction,Science",
+      "description": "This book, \"lkm\" by Author One, appears to be a non-fiction science book, but the provided text is a musical composition, suggesting it may be a unique blend of music and science. The tone is inspirational and motivational, with lyrics that encourage perseverance and hope. The text's use of musical notation and poetic language creates a sense of rhythm and flow, making it an engaging and expressive read.",
+      "filePath": "bookAssets/1778140361563.pdf",
+      "coverPath": "",
+      "publishDate": "2026-05-07",
+      "approved": false
     }
   ]
 }
