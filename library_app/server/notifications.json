@@ -82,6 +82,22 @@
   "librarian1": {
     "newSubmissions": [
       {
+        "id": "166d2e36-6656-4dcb-9a85-9039357d63f4",
+        "category": "newSubmissions",
+        "message": "New book request: \"Pride and Prejudice\" requested by s1.",
+        "timestamp": "2026-05-07T09:51:04.634Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "975c4ba5-25e0-4c97-8d4e-318475d8c19b",
+        "category": "newSubmissions",
+        "message": "New book request: \"Pride and Prejudice\" requested by s1.",
+        "timestamp": "2026-05-07T09:34:50.435Z",
+        "unread": true,
+        "archived": false
+      },
+      {
         "id": "cae32853-c7e7-4210-aba1-c63f8277ad55",
         "category": "newSubmissions",
         "message": "New submission: \"lkm;\" by author1.",
@@ -173,6 +189,30 @@
     ],
     "other": [
       {
+        "id": "ef3ca920-4641-4c3e-a717-2b7024b3f737",
+        "category": "other",
+        "message": "A candidate for your requested book \"Pride and Prejudice\" was downloaded and is pending librarian review.",
+        "timestamp": "2026-05-07T09:51:27.354Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "60ef88be-7a1b-409d-8be9-6b9a9085461f",
+        "category": "other",
+        "message": "Book request rejected: \"erfd\" was rejected. Reason: bad bad.",
+        "timestamp": "2026-05-07T09:49:58.245Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "685024de-81de-4e8e-8a8f-c9e0da0dfdde",
+        "category": "other",
+        "message": "A candidate for your requested book \"Pride and Prejudice\" was downloaded and is pending librarian review.",
+        "timestamp": "2026-05-07T09:35:25.279Z",
+        "unread": true,
+        "archived": false
+      },
+      {
         "id": "e125bd36-d94b-4f95-81aa-550a6c029502",
         "category": "other",
         "message": "The author responded to your review for a book.",
@@ -197,6 +237,22 @@
     "bookRejectionUpdates": [],
     "bookUpdates": [],
     "newSubmissions": [
+      {
+        "id": "d524e07b-21df-4209-b85f-78670456208a",
+        "category": "newSubmissions",
+        "message": "New book request: \"Pride and Prejudice\" requested by s1.",
+        "timestamp": "2026-05-07T09:51:04.634Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "8d8d0eb4-6753-4c17-acf8-273a0f2fab59",
+        "category": "newSubmissions",
+        "message": "New book request: \"Pride and Prejudice\" requested by s1.",
+        "timestamp": "2026-05-07T09:34:50.435Z",
+        "unread": true,
+        "archived": false
+      },
       {
         "id": "03fc48bb-e691-4f11-99df-a6cd00f513df",
         "category": "newSubmissions",

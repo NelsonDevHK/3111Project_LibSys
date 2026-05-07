@@ -518,6 +518,23 @@ function LibrarianBookRequestsScreen({ currentUser }) {
                   </div>
                 )}
 
+                {selectedRequest.candidate && selectedRequest.status === 'downloaded_pending' && (
+                  <div className="detail-row candidate-info-row">
+                    <strong>Downloaded Candidate:</strong>
+                    <div className="candidate-info">
+                      <div><strong>Title:</strong> {selectedRequest.candidate.title}</div>
+                      <div><strong>Author:</strong> {selectedRequest.candidate.author}</div>
+                      <div><strong>Source:</strong> {selectedRequest.candidate.sourceLabel}</div>
+                      {selectedRequest.candidate.summary && (
+                        <div><strong>Summary:</strong> {selectedRequest.candidate.summary}</div>
+                      )}
+                      {selectedRequest.candidate.sourceUrl && (
+                        <div><a href={selectedRequest.candidate.sourceUrl} target="_blank" rel="noreferrer">View Source</a></div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {Array.isArray(selectedRequest.alternativeSuggestions) && selectedRequest.alternativeSuggestions.length > 0 && (
                   <div className="detail-row alternatives-row">
                     <strong>Alternatives:</strong>
@@ -559,53 +576,63 @@ function LibrarianBookRequestsScreen({ currentUser }) {
                 )}
               </div>
 
-              {['pending', 'approved'].includes(selectedRequest.status) && (
+              {['pending', 'approved', 'downloaded_pending'].includes(selectedRequest.status) && (
                 <div className="action-section">
                   <h5>Actions</h5>
 
-                  <div className="form-group">
-                    <label htmlFor="description">Book Description/Summary:</label>
-                    <textarea
-                      id="description"
-                      value={bookDescription}
-                      onChange={(e) => setBookDescription(e.target.value)}
-                      placeholder="Enter or generate a description for the book..."
-                      rows={4}
-                    />
-                    <button
-                      className="btn-generate-summary"
-                      onClick={() => generateSummary(selectedRequest.id)}
-                      disabled={submitting}
-                    >
-                      Generate Summary (LLM)
-                    </button>
-                  </div>
+                  {selectedRequest.status !== 'downloaded_pending' && (
+                    <>
+                      <div className="form-group">
+                        <label htmlFor="description">Book Description/Summary:</label>
+                        <textarea
+                          id="description"
+                          value={bookDescription}
+                          onChange={(e) => setBookDescription(e.target.value)}
+                          placeholder="Enter or generate a description for the book..."
+                          rows={4}
+                        />
+                        <button
+                          className="btn-generate-summary"
+                          onClick={() => generateSummary(selectedRequest.id)}
+                          disabled={submitting}
+                        >
+                          Generate Summary (LLM)
+                        </button>
+                      </div>
 
-                  <input
-                    ref={pdfUploadInputRef}
-                    type="file"
-                    accept="application/pdf"
-                    style={{ display: 'none' }}
-                    onChange={handlePdfSelection}
-                  />
+                      <input
+                        ref={pdfUploadInputRef}
+                        type="file"
+                        accept="application/pdf"
+                        style={{ display: 'none' }}
+                        onChange={handlePdfSelection}
+                      />
 
-                  <div className="decision-buttons">
-                    <button
-                      className="btn-attach"
-                      onClick={openPdfPicker}
-                      disabled={submitting}
-                    >
-                      Attach PDF
-                    </button>
+                      <div className="decision-buttons">
+                        <button
+                          className="btn-attach"
+                          onClick={openPdfPicker}
+                          disabled={submitting}
+                        >
+                          Attach PDF
+                        </button>
 
-                    <button
-                      className="btn-download"
-                      onClick={() => handleDownloadBook(selectedRequest.id)}
-                      disabled={submitting}
-                    >
-                      Download Requested Book Online
-                    </button>
-                  </div>
+                        <button
+                          className="btn-download"
+                          onClick={() => handleDownloadBook(selectedRequest.id)}
+                          disabled={submitting}
+                        >
+                          Download Requested Book Online
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {selectedRequest.status === 'downloaded_pending' && (
+                    <div className="downloaded-pending-info">
+                      <p className="info-text">✓ Book downloaded successfully from {selectedRequest.candidate?.sourceLabel || 'online source'}. Ready to upload to library.</p>
+                    </div>
+                  )}
 
                   <div className="decision-buttons">
                     <button
@@ -613,7 +640,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
                       onClick={() => handleUploadBook(selectedRequest.id)}
                       disabled={submitting || !hasPdf}
                     >
-                      Upload Attached PDF to Library
+                      {selectedRequest.status === 'downloaded_pending' ? 'Confirm & Upload to Library' : 'Upload Attached PDF to Library'}
                     </button>
 
                     <button
@@ -716,6 +743,15 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         .alternatives-list { margin: 0; padding-left: 18px; }
         .alternatives-list li { margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
         .alternatives-list a { color: #8be9fd; }
+        .candidate-info-row { flex-direction: column; }
+        .candidate-info { background-color: #1f2028; border: 1px solid #44475a; border-radius: 4px; padding: 12px; margin-top: 6px; }
+        .candidate-info > div { margin-bottom: 8px; color: #e6e6e6; font-size: 13px; }
+        .candidate-info > div:last-child { margin-bottom: 0; }
+        .candidate-info strong { color: #ffb86c; }
+        .candidate-info a { color: #8be9fd; text-decoration: none; }
+        .candidate-info a:hover { text-decoration: underline; }
+        .downloaded-pending-info { background-color: #1f2028; border-left: 3px solid #50fa7b; padding: 12px; margin-bottom: 12px; border-radius: 2px; }
+        .info-text { margin: 0; color: #50fa7b; font-size: 13px; }
         .modal-footer { padding: 15px 20px; border-top: 1px solid #44475a; display: flex; justify-content: flex-end; }
         .loading, .error, .no-requests { text-align: center; padding: 20px; font-size: 16px; }
         .error { color: #ff6188; }

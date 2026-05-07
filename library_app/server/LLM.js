@@ -387,10 +387,100 @@ async function generateReviewSentiment({ reviewText, rating, bookTitle, username
   return fallbackReviewSentiment({ reviewText, rating });
 }
 
+function buildAlternativeSuggestionsPrompt({ requestedTitle, requestedAuthor, requestedGenre, availableBooks = [] }) {
+  const bookList = (availableBooks || [])
+    .map((book) => `"${book.title}" by ${book.author || 'Unknown'} (Genre: ${book.genre || 'General'})`)
+    .slice(0, 50)
+    .join('\n');
+
+  return [
+    'You are a helpful library assistant. A user requested a book that is not currently available online.',
+    'Suggest 3-5 similar books from the library collection that match the requested book\'s style, genre, or theme.',
+    'Return ONLY a numbered list with the exact titles and authors from the provided collection below.',
+    'If no similar books are found in the collection, return: "No similar titles available."',
+    '',
+    `Requested Book: "${requestedTitle}" by ${requestedAuthor || 'Unknown'} (Genre: ${requestedGenre || 'General'})`,
+    '',
+    'Available Books in Library:',
+    bookList || 'No books in library collection.',
+  ].join('\n');
+}
+
+async function suggestAlternativesUsingLLM({ requestedTitle, requestedAuthor, requestedGenre, availableBooks = [] } = {}) {
+  if (!Array.isArray(availableBooks) || availableBooks.length === 0) {
+    return [];
+  }
+
+  const prompt = buildAlternativeSuggestionsPrompt({
+    requestedTitle,
+    requestedAuthor,
+    requestedGenre,
+    availableBooks,
+  });
+  const provider = getProviderConfig();
+
+  try {
+    if (provider === 'nvidia') {
+      const apiKey = process.env.NVIDIA_API_KEY || process.env.NVIDIA_NIM_API_KEY || process.env.NVIDIA_API_TOKEN;
+      if (apiKey) {
+        const response = await callOpenAICompatibleEndpoint({
+          endpoint: process.env.NVIDIA_API_URL || 'https://integrate.api.nvidia.com/v1/chat/completions',
+          apiKey,
+          model: process.env.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct',
+          prompt,
+        });
+        
+        // Parse the response to extract book titles
+        const suggestions = [];
+        const lines = String(response || '').split('\n');
+        for (const line of lines) {
+          const match = line.match(/^\d+\.\s*"?([^"]+)"?\s*by\s*(.+)$/);
+          if (match) {
+            suggestions.push({
+              title: match[1].trim(),
+              author: match[2].trim().replace(/\(.*?\)/g, '').trim(),
+            });
+          }
+        }
+        return suggestions;
+      }
+    }
+
+    if (provider === 'openai' && process.env.OPENAI_API_KEY) {
+      const response = await callOpenAICompatibleEndpoint({
+        endpoint: process.env.OPENAI_API_URL || 'https://api.openai.com/v1/chat/completions',
+        apiKey: process.env.OPENAI_API_KEY,
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        prompt,
+      });
+
+      // Parse the response to extract book titles
+      const suggestions = [];
+      const lines = String(response || '').split('\n');
+      for (const line of lines) {
+        const match = line.match(/^\d+\.\s*"?([^"]+)"?\s*by\s*(.+)$/);
+        if (match) {
+          suggestions.push({
+            title: match[1].trim(),
+            author: match[2].trim().replace(/\(.*?\)/g, '').trim(),
+          });
+        }
+      }
+      return suggestions;
+    }
+  } catch (error) {
+    console.error('LLM failure during alternative suggestions. Returning empty list:', error.message);
+    return [];
+  }
+
+  return [];
+}
+
 module.exports = {
   buildFallbackSummary,
   extractTextFromPdfBuffer,
   generateBookSummary,
   generateBookSummaryFromPdf,
   generateReviewSentiment,
+  suggestAlternativesUsingLLM,
 };

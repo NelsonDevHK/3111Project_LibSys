@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const { randomUUID } = require('crypto');
-const { generateBookSummary, generateBookSummaryFromPdf, generateReviewSentiment } = require('./LLM');
+const { generateBookSummary, generateBookSummaryFromPdf, generateReviewSentiment, suggestAlternativesUsingLLM } = require('./LLM');
 const { PDFDocument, StandardFonts } = require('pdf-lib');
 
 // File paths
@@ -2077,21 +2077,32 @@ function notifyUsersForSimilarAuthorDownloads(requestEntry, uploadedBookTitle) {
   const allRequests = readBookRequests();
   const normalizedAuthor = String(requestEntry?.author || '').toLowerCase().trim();
   const normalizedTitle = String(uploadedBookTitle || '').toLowerCase().trim();
+  const originalRequester = String(requestEntry?.requestedBy || '').trim();
 
+  // Notify the original requester first
+  if (originalRequester) {
+    addNotificationForUser(
+      originalRequester,
+      'other',
+      `Your requested book or a similar alternative by ${requestEntry.author} is now available: "${uploadedBookTitle}". You can now borrow it from the library!`
+    );
+  }
+
+  // Notify other users who requested the same author
   allRequests
     .filter((entry) => {
       return (
         String(entry?.author || '').toLowerCase().trim() === normalizedAuthor &&
         String(entry?.title || '').toLowerCase().trim() !== normalizedTitle &&
         String(entry?.requestedBy || '').trim() &&
-        String(entry?.requestedBy || '').trim() !== String(requestEntry?.requestedBy || '').trim()
+        String(entry?.requestedBy || '').trim() !== originalRequester
       );
     })
     .forEach((entry) => {
       addNotificationForUser(
         entry.requestedBy,
         'other',
-        `A similar title by ${requestEntry.author} is now available: "${uploadedBookTitle}".`
+        `A similar title by ${requestEntry.author} is now available: "${uploadedBookTitle}". Your requested book might be available soon!`
       );
     });
 }
@@ -2696,7 +2707,47 @@ app.post('/api/book-requests/:id/download', async (req, res) => {
 
     const candidate = await fetchGutendexCandidate(requestEntry);
     if (!candidate) {
+      // If the exact book is not available, suggest alternatives using LLM from library collection
+      persistProgress({
+        downloadProgress: 35,
+        downloadStatus: 'suggesting_alternatives',
+        downloadError: '',
+      });
+
+      const books = readBooks();
+      let llmSuggestions = [];
+      try {
+        llmSuggestions = await suggestAlternativesUsingLLM({
+          requestedTitle: requestEntry.title,
+          requestedAuthor: requestEntry.author,
+          requestedGenre: requestEntry.genre,
+          availableBooks: books.map((b) => ({
+            title: b.title,
+            author: b.authorFullName || b.authorUsername || 'Unknown',
+            genre: b.genre || 'General',
+          })),
+        });
+      } catch (err) {
+        console.warn('LLM suggestion failed, falling back to external API:', err.message);
+      }
+
+      // Also get alternatives from external APIs
       const alternatives = await suggestAlternativeTitles(requestEntry);
+
+      // Combine both suggestion sources
+      const combinedAlternatives = [
+        ...llmSuggestions.map((s) => ({
+          title: s.title,
+          author: s.author,
+          source: 'library',
+          sourceUrl: '',
+        })),
+        ...alternatives.map((a) => ({
+          ...a,
+          source: 'external',
+        })),
+      ];
+
       const unchangedStatus = ['pending', 'approved'].includes(String(requestEntry.status || '').toLowerCase())
         ? String(requestEntry.status || '').toLowerCase()
         : 'pending';
@@ -2705,7 +2756,7 @@ app.post('/api/book-requests/:id/download', async (req, res) => {
         reviewedAt: requestEntry.reviewedAt || null,
         reviewedBy: requestEntry.reviewedBy || null,
         rejectionReason: requestEntry.rejectionReason || '',
-        alternativeSuggestions: alternatives,
+        alternativeSuggestions: combinedAlternatives,
         downloadProgress: 100,
         downloadStatus: 'failed',
         downloadError: 'No online downloadable source found.',
@@ -2714,15 +2765,15 @@ app.post('/api/book-requests/:id/download', async (req, res) => {
       addNotificationForUser(
         requestEntry.requestedBy,
         'other',
-        alternatives.length > 0
-          ? `We could not download "${requestEntry.title}". We found ${alternatives.length} suggested alternatives in your request details.`
+        combinedAlternatives.length > 0
+          ? `We could not download "${requestEntry.title}". We found ${combinedAlternatives.length} suggested alternatives in your request details.`
           : `We could not find an online downloadable copy for "${requestEntry.title}".`
       );
 
       return res.json({
         message: 'No downloadable source found for this request.',
         found: false,
-        alternatives,
+        alternatives: combinedAlternatives,
         request: updatedRequest,
       });
     }
