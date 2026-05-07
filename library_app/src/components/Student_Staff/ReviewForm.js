@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 function ReviewForm({ book, username, onReviewSubmitted, onClose }) {
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
+  const [anonymousReview, setAnonymousReview] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -31,6 +32,7 @@ function ReviewForm({ book, username, onReviewSubmitted, onClose }) {
           bookId: book.id,
           rating,
           reviewText,
+            anonymous: anonymousReview,
         }),
       });
 
@@ -43,6 +45,7 @@ function ReviewForm({ book, username, onReviewSubmitted, onClose }) {
       setSuccess(true);
       setRating(0);
       setReviewText('');
+      setAnonymousReview(false);
 
       if (onReviewSubmitted) {
         onReviewSubmitted(data.review);
@@ -115,6 +118,15 @@ function ReviewForm({ book, username, onReviewSubmitted, onClose }) {
                 {reviewText.length}/500
               </span>
             </div>
+
+            <label className="review-anonymous-option" style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+              <input
+                type="checkbox"
+                checked={anonymousReview}
+                onChange={(e) => setAnonymousReview(e.target.checked)}
+              />
+              Post this review anonymously
+            </label>
 
             {error && <div className="review-form-error">{error}</div>}
 

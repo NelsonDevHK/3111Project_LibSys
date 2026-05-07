@@ -545,6 +545,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
                 <div className="detail-row"><strong>Title:</strong><span>{selectedRequest.title}</span></div>
                 <div className="detail-row"><strong>Author:</strong><span>{selectedRequest.author}</span></div>
                 <div className="detail-row"><strong>Genre:</strong><span>{selectedRequest.genre}</span></div>
+                <div className="detail-row"><strong>Urgent Request:</strong><span>{selectedRequest.urgentRequest ? 'Yes' : 'No'}</span></div>
                 <div className="detail-row"><strong>Priority:</strong><span className={`priority-badge ${priorityClass(selectedRequest.priorityLevel)}`}>{selectedRequest.priorityLevel} ({selectedRequest.priorityScore || 0})</span></div>
                 <div className="detail-row"><strong>Reason:</strong><p className="reason-text">{selectedRequest.reason}</p></div>
                 <div className="detail-row"><strong>Download:</strong><span>{selectedRequest.downloadStatus || 'idle'} ({selectedRequest.downloadProgress || 0}%)</span></div>

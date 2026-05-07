@@ -5,6 +5,7 @@ function RequestNewBookScreen({ currentUser }) {
   const [author, setAuthor] = useState('');
   const [genre, setGenre] = useState('');
   const [reason, setReason] = useState('');
+  const [urgentRequest, setUrgentRequest] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -21,6 +22,7 @@ function RequestNewBookScreen({ currentUser }) {
     setAuthor('');
     setGenre('');
     setReason('');
+    setUrgentRequest(false);
   };
 
   const fetchMyRequests = useCallback(async () => {
@@ -76,6 +78,7 @@ function RequestNewBookScreen({ currentUser }) {
           author: author.trim(),
           genre: genre.trim(),
           reason: reason.trim(),
+          urgentRequest,
           requestedBy: currentUser.username,
           requestedByRole: currentUser.role,
         }),
@@ -135,6 +138,15 @@ function RequestNewBookScreen({ currentUser }) {
           placeholder="Why should this book be added?"
         />
 
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+          <input
+            type="checkbox"
+            checked={urgentRequest}
+            onChange={(event) => setUrgentRequest(event.target.checked)}
+          />
+          Mark this as urgent or course-related
+        </label>
+
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Submitting...' : 'Submit Book Request'}
         </button>
@@ -155,6 +167,7 @@ function RequestNewBookScreen({ currentUser }) {
                 <th>Title</th>
                 <th>Author</th>
                 <th>Genre</th>
+                <th>Priority</th>
                 <th>Status</th>
                 <th>Submitted</th>
               </tr>
@@ -165,6 +178,7 @@ function RequestNewBookScreen({ currentUser }) {
                   <td>{requestItem.title}</td>
                   <td>{requestItem.author}</td>
                   <td>{requestItem.genre}</td>
+                  <td>{requestItem.urgentRequest ? 'Urgent' : 'Normal'}</td>
                   <td>{requestItem.status}</td>
                   <td>{new Date(requestItem.submittedAt).toLocaleDateString()}</td>
                 </tr>

@@ -21,7 +21,7 @@ const BOOK_REQUESTS_FILE = path.join(__dirname, 'bookRequests.json');
 const app = express();
 const PORT = 4000;
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 app.use('/bookAssets', express.static(path.join(__dirname, 'bookAssets')));
 
 // User helpers
@@ -556,12 +556,61 @@ function getBookDueTime(book) {
 }
 
 function releaseBorrowedBook(book) {
+  clearBorrowReturnTimer(book);
   book.status = 'available';
   delete book.borrowedBy;
   delete book.borrowedAt;
   delete book.dueDate;
   delete book.dueAt;
+  delete book.dueReminderSentForDueAt;
+  delete book.dueReminderSentAt;
   updatePublishedBookBorrowedState(book.id, false);
+}
+
+const DUE_REMINDER_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+
+function getReminderKeyForBook(book) {
+  return String(book?.dueAt || book?.dueDate || '');
+}
+
+function sendDueReminders(books) {
+  const now = Date.now();
+  let changed = false;
+
+  books.forEach((book) => {
+    if (book.status !== 'borrowed' || !book.borrowedBy) {
+      return;
+    }
+
+    const dueTime = getBookDueTime(book);
+    if (dueTime === null || dueTime <= now) {
+      return;
+    }
+
+    const timeRemaining = dueTime - now;
+    if (timeRemaining > DUE_REMINDER_WINDOW_MS) {
+      return;
+    }
+
+    const currentReminderKey = getReminderKeyForBook(book);
+    if (!currentReminderKey || book.dueReminderSentForDueAt === currentReminderKey) {
+      return;
+    }
+
+    const dueDateLabel = book.dueDate || new Date(dueTime).toISOString().split('T')[0];
+    addNotificationForUser(
+      book.borrowedBy,
+      'dueReminders',
+      `Due reminder: "${book.title}" is due on ${dueDateLabel}.`
+    );
+    book.dueReminderSentForDueAt = currentReminderKey;
+    book.dueReminderSentAt = new Date().toISOString();
+    changed = true;
+  });
+
+  if (changed) {
+    writeBooks(books);
+  }
 }
 
 function sweepExpiredBorrows(books) {
@@ -594,6 +643,65 @@ function sweepExpiredBorrows(books) {
   if (changed) {
     writeBooks(books);
   }
+}
+
+function runBorrowLifecycleMaintenance() {
+  const books = readBooks();
+  sweepExpiredBorrows(books);
+  sendDueReminders(books);
+}
+
+const borrowReturnTimers = new Map();
+
+function getBorrowReturnTimerKey(book) {
+  return String(book?.id || '');
+}
+
+function clearBorrowReturnTimer(book) {
+  const timerKey = getBorrowReturnTimerKey(book);
+  const timer = borrowReturnTimers.get(timerKey);
+  if (timer) {
+    clearTimeout(timer);
+    borrowReturnTimers.delete(timerKey);
+  }
+}
+
+function scheduleBorrowReturnTimer(book) {
+  if (!book || book.status !== 'borrowed' || !book.borrowedBy) {
+    return;
+  }
+
+  const dueTime = getBookDueTime(book);
+  if (dueTime === null) {
+    return;
+  }
+
+  const timerKey = getBorrowReturnTimerKey(book);
+  clearBorrowReturnTimer(book);
+
+  const delayMs = Math.max(0, dueTime - Date.now());
+  const timer = setTimeout(() => {
+    borrowReturnTimers.delete(timerKey);
+    try {
+      const books = readBooks();
+      sweepExpiredBorrows(books);
+    } catch (error) {
+      console.error('Borrow auto-return timer failed:', error);
+    }
+  }, delayMs);
+
+  borrowReturnTimers.set(timerKey, timer);
+}
+
+function refreshBorrowReturnTimers() {
+  const books = readBooks();
+  books.forEach((book) => {
+    if (book.status === 'borrowed' && book.borrowedBy) {
+      scheduleBorrowReturnTimer(book);
+    } else {
+      clearBorrowReturnTimer(book);
+    }
+  });
 }
 
 // Published Books helpers
@@ -922,7 +1030,7 @@ function buildReviewAnalytics(reviews) {
   };
 }
 
-function submitReview(username, book, rating, reviewText) {
+function submitReview(username, book, rating, reviewText, anonymous = false) {
   if (!username || !book || !rating) {
     return null;
   }
@@ -945,6 +1053,7 @@ function submitReview(username, book, rating, reviewText) {
     submittedAt: new Date().toISOString(),
     helpful: 0,
     sentiment: null,
+    anonymous: Boolean(anonymous),
   };
 
   if (existingReviewIndex !== -1) {
@@ -977,6 +1086,7 @@ function getAverageRating(bookId) {
     totalReviews: reviews.length,
   };
 }
+
 
 function canUserReviewBook(username, bookId) {
   if (!username || !bookId) {
@@ -1169,6 +1279,16 @@ app.post('/api/profile/update', (req, res) => {
 
 // Update profile end
 
+app.use((err, req, res, next) => {
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({
+      error: 'Profile picture is too large. Please choose an image smaller than 2 MB.',
+    });
+  }
+
+  return next(err);
+});
+
 // Ennnnnnnnnnnnd Ignore already taken care
 
 // Book routes
@@ -1217,9 +1337,9 @@ app.post('/api/borrow', (req, res) => {
 
   writeBooks(books);
   updatePublishedBookBorrowedState(book.id, true);
+  scheduleBorrowReturnTimer(book);
   if (username) {
     trackBookBorrowHistory(username, book);
-    addNotificationForUser(username, 'dueReminders', `Due reminder: "${book.title}" is due on ${book.dueDate}.`);
   }
 
   res.json({ message: 'Book borrowed successfully!', book });
@@ -1406,8 +1526,8 @@ app.get('/api/reading-history/:username', (req, res) => {
 
   const history = userHistory
     .map((entry) => {
-      // Use publishDate if available, otherwise use borrowDate
-      const startDate = entry.publishDate || entry.borrowDate;
+      // Use only borrowDate for accurate reading duration (not publishDate)
+      const startDate = entry.borrowDate;
       const returnDate = entry.returnDate || null;
       
       const startMs = startDate ? new Date(startDate).getTime() : NaN;
@@ -1597,7 +1717,7 @@ function enrichBookRequestsWithPriority(bookRequests, populationSource = null) {
     const urgencyScore = inferUrgencyScore(request?.reason);
     const popularityScore = Math.max(0, popularity - 1) * 3;
     const waitingScore = Math.min(4, Math.floor(waitingDays / 2));
-    const priorityScore = urgencyScore + popularityScore + waitingScore;
+    const priorityScore = urgencyScore + popularityScore + waitingScore + (request?.urgentRequest ? 5 : 0);
 
     return {
       ...request,
@@ -1605,6 +1725,7 @@ function enrichBookRequestsWithPriority(bookRequests, populationSource = null) {
       waitingDays,
       priorityScore,
       priorityLevel: getPriorityLevel(priorityScore),
+      urgentRequest: Boolean(request?.urgentRequest),
       alternativeSuggestions: Array.isArray(request?.alternativeSuggestions)
         ? request.alternativeSuggestions
         : [],
@@ -2118,7 +2239,7 @@ app.post('/api/publish',
 
 app.post('/api/book-requests', (req, res) => {
   try {
-    const { title, author, genre, reason, requestedBy, requestedByRole } = req.body || {};
+    const { title, author, genre, reason, requestedBy, requestedByRole, urgentRequest } = req.body || {};
 
     if (!title || !author || !genre || !reason || !requestedBy || !requestedByRole) {
       return res.status(400).json({
@@ -2131,6 +2252,26 @@ app.post('/api/book-requests', (req, res) => {
       return res.status(403).json({ error: 'Only students and staff can submit book requests.' });
     }
 
+    const normalizedTitle = String(title).trim().toLowerCase();
+    const normalizedAuthor = String(author).trim().toLowerCase();
+    const bookRequests = readBookRequests();
+    const books = readBooks();
+    const duplicateRequest = bookRequests.some((request) => {
+      const requestTitle = String(request?.title || '').trim().toLowerCase();
+      const requestAuthor = String(request?.author || '').trim().toLowerCase();
+      return requestTitle === normalizedTitle && requestAuthor === normalizedAuthor;
+    }) || books.some((book) => {
+      const bookTitle = String(book?.title || '').trim().toLowerCase();
+      const bookAuthor = String(book?.authorFullName || book?.authorUsername || '').trim().toLowerCase();
+      return bookTitle === normalizedTitle && bookAuthor === normalizedAuthor;
+    });
+
+    if (duplicateRequest) {
+      return res.status(409).json({
+        error: 'This book has already been requested or already exists in the library.',
+      });
+    }
+
     const requestEntry = {
       id: randomUUID(),
       title: String(title).trim(),
@@ -2139,6 +2280,7 @@ app.post('/api/book-requests', (req, res) => {
       reason: String(reason).trim(),
       requestedBy: String(requestedBy).trim(),
       requestedByRole: normalizedRole,
+      urgentRequest: Boolean(urgentRequest),
       status: 'pending',
       submittedAt: new Date().toISOString(),
       reviewedAt: null,
@@ -2156,7 +2298,6 @@ app.post('/api/book-requests', (req, res) => {
       return res.status(400).json({ error: 'All fields must be non-empty.' });
     }
 
-    const bookRequests = readBookRequests();
     bookRequests.unshift(requestEntry);
     writeBookRequests(bookRequests);
 
@@ -3135,7 +3276,7 @@ app.patch('/api/users/bulk', (req, res) => {
 
 // Book Reviews Endpoints
 app.post('/api/reviews', (req, res) => {
-  const { username, bookId, rating, reviewText } = req.body;
+  const { username, bookId, rating, reviewText, anonymous } = req.body;
 
   if (!username || !bookId || !rating) {
     return res.status(400).json({ error: 'username, bookId, and rating are required.' });
@@ -3155,7 +3296,7 @@ app.post('/api/reviews', (req, res) => {
     });
   }
 
-  const review = submitReview(username, book, rating, reviewText);
+  const review = submitReview(username, book, rating, reviewText, anonymous);
 
   // Send notification to all users (public notification)
   addNotificationForUser(
@@ -3194,6 +3335,28 @@ app.get('/api/reviews/:bookId', async (req, res) => {
   } catch (err) {
     console.error('Error fetching reviews for book:', err);
     res.status(500).json({ error: 'Failed to fetch reviews.' });
+  }
+});
+
+app.post('/api/reviews/:bookId/:reviewId/helpful', (req, res) => {
+  try {
+    const { bookId, reviewId } = req.params;
+    const bookReviews = readBookReviews();
+    const reviewList = bookReviews[String(bookId)] || [];
+    const reviewIndex = reviewList.findIndex((review) => String(review.id) === String(reviewId));
+
+    if (reviewIndex === -1) {
+      return res.status(404).json({ error: 'Review not found.' });
+    }
+
+    const review = reviewList[reviewIndex];
+    review.helpful = (Number(review.helpful) || 0) + 1;
+    writeBookReviews(bookReviews);
+
+    res.json({ message: 'Review marked helpful.', helpful: review.helpful });
+  } catch (err) {
+    console.error('Error marking review helpful:', err);
+    res.status(500).json({ error: 'Failed to mark review as helpful.' });
   }
 });
 
@@ -3770,3 +3933,14 @@ app.post('/api/generate-summary', summaryUpload.single('file'), async (req, res)
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+refreshBorrowReturnTimers();
+runBorrowLifecycleMaintenance();
+
+setInterval(() => {
+  try {
+    runBorrowLifecycleMaintenance();
+  } catch (error) {
+    console.error('Borrow lifecycle maintenance failed:', error);
+  }
+}, 60 * 1000);

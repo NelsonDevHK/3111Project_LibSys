@@ -1223,6 +1223,69 @@ button[type="submit"]:hover {
   font-weight: 600;
 }
 
+.summary-card{
+  color:white;
+}
+.summary-card h3{
+  color:white;
+}
+
+.reading-history-screen {
+  color: #e6e6e6;
+}
+
+.reading-history-table,
+.reading-history-table td,
+.reading-history-table th,
+.reading-history-table p,
+.reading-history-table div,
+.reading-history-table span {
+  color: #e6e6e6;
+}
+
+.reading-history-table th {
+  color: #ffb86c;
+}
+
+.summary-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.summary-content {
+  background: #292a2d;
+  border: 1px solid #44475a;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 800px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  color: #e6e6e6;
+  position: relative;
+}
+
+.summary-content h2,
+.summary-content h3,
+.summary-content h4,
+.summary-content p,
+.summary-content span,
+.summary-content label,
+.summary-content td,
+.summary-content th,
+.summary-content div {
+  color: #e6e6e6;
+}
+
 .reviews-modal-content {
   max-height: 600px;
   overflow-y: auto;

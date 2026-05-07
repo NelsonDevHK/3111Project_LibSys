@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import ReviewForm from './ReviewForm';
 
 function ReviewsDisplay({ book, username, userRole, allowReviewSubmission = true }) {
@@ -8,14 +8,11 @@ function ReviewsDisplay({ book, username, userRole, allowReviewSubmission = true
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [sortMode, setSortMode] = useState('recent');
 
   const canReview = allowReviewSubmission && (userRole === 'student' || userRole === 'staff');
 
-  useEffect(() => {
-    fetchReviews();
-  }, [book.id]);
-
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     setLoading(true);
     setError('');
 
@@ -37,12 +34,43 @@ function ReviewsDisplay({ book, username, userRole, allowReviewSubmission = true
     } finally {
       setLoading(false);
     }
-  };
+  }, [book.id]);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
 
   const handleReviewSubmitted = (newReview) => {
     // Refresh reviews after submission
     fetchReviews();
   };
+
+  const handleMarkHelpful = async (reviewId) => {
+    try {
+      const response = await fetch(`http://localhost:4000/api/reviews/${book.id}/${reviewId}/helpful`, {
+        method: 'POST',
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to mark review as helpful.');
+      }
+
+      fetchReviews();
+    } catch (err) {
+      setError(err.message || 'Failed to mark review as helpful.');
+    }
+  };
+
+  const sortedReviews = [...reviews].sort((left, right) => {
+    if (sortMode === 'helpful') {
+      const helpfulDiff = (Number(right.helpful) || 0) - (Number(left.helpful) || 0);
+      if (helpfulDiff !== 0) return helpfulDiff;
+      return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+    }
+
+    return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+  });
 
   const hasUserReviewed = reviews.some((r) => r.username === username);
 
@@ -50,14 +78,20 @@ function ReviewsDisplay({ book, username, userRole, allowReviewSubmission = true
     <div className="reviews-display">
       <div className="reviews-header">
         <h4>Reviews & Ratings</h4>
-        {canReview && (
-          <button
-            className="reviews-btn-add"
-            onClick={() => setShowReviewForm(true)}
-          >
-            {hasUserReviewed ? 'Edit Your Review' : 'Add a Review'}
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <select value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
+            <option value="recent">Most Recent</option>
+            <option value="helpful">Most Helpful</option>
+          </select>
+          {canReview && (
+            <button
+              className="reviews-btn-add"
+              onClick={() => setShowReviewForm(true)}
+            >
+              {hasUserReviewed ? 'Edit Your Review' : 'Add a Review'}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="reviews-rating-summary">
@@ -82,15 +116,15 @@ function ReviewsDisplay({ book, username, userRole, allowReviewSubmission = true
 
       {error && <p className="reviews-error">{error}</p>}
 
-      {reviews.length === 0 && !loading ? (
+      {sortedReviews.length === 0 && !loading ? (
         <p className="reviews-empty">No reviews yet. Be the first to review!</p>
       ) : (
         <div className="reviews-list">
-          {reviews.map((review) => (
+          {sortedReviews.map((review) => (
             <div key={review.id} className="reviews-item">
               <div className="review-header">
                 <div className="review-user-info">
-                  <span className="review-username">{review.username}</span>
+                  <span className="review-username">{review.anonymous ? 'Anonymous reader' : review.username}</span>
                   <span className="review-date">
                     {new Date(review.submittedAt).toLocaleDateString()}
                   </span>
@@ -110,6 +144,15 @@ function ReviewsDisplay({ book, username, userRole, allowReviewSubmission = true
               {review.reviewText && (
                 <p className="review-text">{review.reviewText}</p>
               )}
+
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ color: '#8f93a2', fontSize: '0.9rem' }}>
+                  Helpful votes: {Number(review.helpful) || 0}
+                </span>
+                <button type="button" onClick={() => handleMarkHelpful(review.id)}>
+                  Mark Helpful
+                </button>
+              </div>
             </div>
           ))}
         </div>

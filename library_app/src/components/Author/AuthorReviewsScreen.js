@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 const REPLY_TEMPLATES = [
   {
@@ -43,11 +43,7 @@ function AuthorReviewsScreen({ currentUser }) {
   const [flagReasonText, setFlagReasonText] = useState({});
   const [showFlagModal, setShowFlagModal] = useState(null);
 
-  useEffect(() => {
-    fetchReviews();
-  }, [currentUser]);
-
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     setLoading(true);
     setError('');
 
@@ -75,7 +71,11 @@ function AuthorReviewsScreen({ currentUser }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser?.username]);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
 
   const toggleReviewExpanded = (reviewId) => {
     const newExpanded = new Set(expandedReviews);
@@ -233,7 +233,7 @@ function AuthorReviewsScreen({ currentUser }) {
                 <div className="review-meta">
                   <span className="book-title">{review.bookTitle}</span>
                   <span className="reviewer-info">
-                    by {review.username} on{' '}
+                    by {review.anonymous ? 'Anonymous reader' : review.username} on{' '}
                     {new Date(review.submittedAt).toLocaleDateString()}
                   </span>
                   <span className={`sentiment-pill ${sentimentClass(review.sentiment)}`}>

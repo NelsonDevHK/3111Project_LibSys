@@ -11,6 +11,7 @@ function BorrowedBooksScreen({ currentUser }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeBookId, setActiveBookId] = useState(null);
+  const [selectedBookIds, setSelectedBookIds] = useState([]);
   const [bookmarkPageInput, setBookmarkPageInput] = useState('1');
   const [currentPage, setCurrentPage] = useState(1);
   const [numPages, setNumPages] = useState(0);
@@ -46,6 +47,10 @@ function BorrowedBooksScreen({ currentUser }) {
         setHighlights([]);
         setFeedback('Reading screen closed because borrowing period expired or the book was returned.');
       }
+
+      setSelectedBookIds((currentSelected) =>
+        currentSelected.filter((bookId) => nextBooks.some((book) => String(book.id) === String(bookId)))
+      );
     } catch (fetchError) {
       setError(fetchError.message || 'Failed to fetch borrowed books.');
     } finally {
@@ -240,6 +245,74 @@ function BorrowedBooksScreen({ currentUser }) {
     }
   };
 
+  const toggleBookSelection = (bookId) => {
+    setSelectedBookIds((currentSelected) => {
+      const normalizedBookId = String(bookId);
+      if (currentSelected.some((item) => String(item) === normalizedBookId)) {
+        return currentSelected.filter((item) => String(item) !== normalizedBookId);
+      }
+
+      return [...currentSelected, bookId];
+    });
+  };
+
+  const returnSelectedBooks = async () => {
+    if (!currentUser?.username || selectedBookIds.length === 0) {
+      return;
+    }
+
+    const selectedSnapshot = [...selectedBookIds];
+    setIsSaving(true);
+    setFeedback('');
+
+    try {
+      const failures = [];
+      let returnedCount = 0;
+
+      for (const bookId of selectedSnapshot) {
+        try {
+          const res = await fetch('http://localhost:4000/api/return', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookId, username: currentUser.username }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || `Failed to return book ${bookId}.`);
+          }
+
+          returnedCount += 1;
+        } catch (bookError) {
+          failures.push(bookError.message || `Failed to return book ${bookId}.`);
+        }
+      }
+
+      setSelectedBookIds([]);
+      if (selectedSnapshot.some((bookId) => String(bookId) === String(activeBookId))) {
+        setActiveBookId(null);
+        setHighlights([]);
+        setSelectedText('');
+        setSelectedRects([]);
+      }
+
+      if (returnedCount > 0 && failures.length > 0) {
+        setFeedback(`${returnedCount} selected book(s) returned successfully. ${failures[0]}`);
+      } else if (returnedCount === 1) {
+        setFeedback('Selected book returned successfully.');
+      } else if (returnedCount > 1) {
+        setFeedback(`${returnedCount} selected books returned successfully.`);
+      } else if (failures.length > 0) {
+        setFeedback(failures[0]);
+      }
+
+      fetchBorrowedBooks();
+    } catch (returnError) {
+      setFeedback(returnError.message || 'Failed to return selected books.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (loading) return <div>Loading borrowed books...</div>;
 
   const pageHighlights = highlights.filter((item) => Number(item.page) === Number(currentPage));
@@ -297,9 +370,20 @@ function BorrowedBooksScreen({ currentUser }) {
       {books.length === 0 ? (
         <p>No borrowed books right now.</p>
       ) : (
-        <table>
+        <>
+          <div className="borrowed-books-actions">
+            <button
+              type="button"
+              onClick={returnSelectedBooks}
+              disabled={selectedBookIds.length === 0 || isSaving}
+            >
+              Return Selected ({selectedBookIds.length})
+            </button>
+          </div>
+          <table>
           <thead>
             <tr>
+              <th>Select</th>
               <th>Title</th>
               <th>Author</th>
               <th>Borrowed At</th>
@@ -310,6 +394,13 @@ function BorrowedBooksScreen({ currentUser }) {
           <tbody>
             {books.map((book) => (
               <tr key={book.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedBookIds.some((item) => String(item) === String(book.id))}
+                    onChange={() => toggleBookSelection(book.id)}
+                  />
+                </td>
                 <td>{book.title}</td>
                 <td>{book.authorFullName}</td>
                 <td>{book.borrowedAt ? new Date(book.borrowedAt).toLocaleString() : '-'}</td>
@@ -328,7 +419,8 @@ function BorrowedBooksScreen({ currentUser }) {
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </>
       )}
 
       {activeBook && (
