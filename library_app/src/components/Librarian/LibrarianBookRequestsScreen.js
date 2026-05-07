@@ -138,7 +138,8 @@ function LibrarianBookRequestsScreen({ currentUser }) {
     setFeedback('');
 
     try {
-      const request = bookRequests.find((r) => r.id === requestId);
+      // Use selectedRequest which has the fresh data from download, fallback to bookRequests
+      const request = selectedRequest && selectedRequest.id === requestId ? selectedRequest : bookRequests.find((r) => r.id === requestId);
       const requestPdfPath = request?.pdfFilePath || request?.filePath || '';
       if (!requestPdfPath) {
         throw new Error('Attach a PDF before uploading the requested book.');
@@ -160,6 +161,8 @@ function LibrarianBookRequestsScreen({ currentUser }) {
           body: JSON.stringify({
             librarianUsername: currentUser.username,
             description: nextDescription,
+            filePath: requestPdfPath,
+            candidate: request?.candidate || null,
           }),
         }
       );

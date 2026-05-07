@@ -2574,7 +2574,7 @@ app.post('/api/book-requests/:id/attach-pdf', upload.fields([{ name: 'file', max
 app.post('/api/book-requests/:id/upload', async (req, res) => {
   try {
     const { id } = req.params;
-    const { librarianUsername, description } = req.body || {};
+    const { librarianUsername, description, filePath: clientProvidedFilePath, candidate } = req.body || {};
 
     const bookRequests = readBookRequests();
     const requestIndex = findBookRequestIndex(bookRequests, id);
@@ -2588,31 +2588,45 @@ app.post('/api/book-requests/:id/upload', async (req, res) => {
     }
 
     const books = readBooks();
-    const pdfPath = resolveBookRequestPdfPath(requestEntry, books);
+    
+    // Use the filePath provided by the client first (for downloaded books), fallback to resolving from disk
+    let pdfPath = String(clientProvidedFilePath || '').trim();
+    if (!pdfPath) {
+      pdfPath = resolveBookRequestPdfPath(requestEntry, books);
+    }
+    
     if (!pdfPath) {
       return res.status(400).json({ error: 'Attach a PDF before uploading the requested book.' });
     }
 
-    const generatedDescription = String(description || '').trim() || await generateBookSummary({
-      title: requestEntry.title,
-      author: requestEntry.author,
-      genre: requestEntry.genre,
-      summaryStyle: 'medium',
-      notes: requestEntry.reason,
-    });
+    // For downloaded books, use the candidate summary if available, otherwise generate one
+    let summaryToUse = String(description || '').trim();
+    if (!summaryToUse && candidate && String(candidate.summary || '').trim()) {
+      summaryToUse = String(candidate.summary).trim();
+    }
+    if (!summaryToUse) {
+      summaryToUse = await generateBookSummary({
+        title: requestEntry.title,
+        author: requestEntry.author,
+        genre: requestEntry.genre,
+        summaryStyle: 'medium',
+        notes: requestEntry.reason,
+      });
+    }
+
     const newBook = {
       id: Date.now(),
       title: requestEntry.title,
       authorUsername: 'library',
       authorFullName: requestEntry.author,
       genre: requestEntry.genre,
-      summary: generatedDescription,
+      summary: summaryToUse,
       publishDate: new Date().toISOString().split('T')[0],
       approved: true,
       status: 'available',
       borrowCount: 0,
       requestSource: 'book-request',
-      downloadMethod: 'manual-upload',
+      downloadMethod: String(requestEntry.status) === 'downloaded_pending' ? 'online-download' : 'manual-upload',
       filePath: pdfPath,
     };
 
