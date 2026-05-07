@@ -229,28 +229,33 @@ async function callOpenAICompatibleEndpoint({ endpoint, apiKey, model, prompt })
     throw new Error('Fetch is not available in this Node runtime.');
   }
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.6,
-      max_tokens: 220,
-      messages: [
-        {
-          role: 'system',
-          content: 'You generate concise, relevant book summaries for a publishing workflow.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    }),
-  });
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.6,
+        max_tokens: 220,
+        messages: [
+          {
+            role: 'system',
+            content: 'You generate concise, relevant book summaries for a publishing workflow.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      }),
+    });
+  } catch (error) {
+    throw new Error(`LLM fetch failure: ${error.message}`);
+  }
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => '');
@@ -305,9 +310,87 @@ async function generateBookSummary({ title, author, genre, summaryStyle, notes }
   return buildFallbackSummary({ title, author, genre, summaryStyle, notes });
 }
 
+function buildReviewSentimentPrompt({ reviewText, rating, bookTitle, username }) {
+  const normalizedText = cleanText(reviewText);
+  const normalizedTitle = cleanText(bookTitle) || 'Unknown title';
+  const normalizedUsername = cleanText(username) || 'Unknown reviewer';
+
+  return [
+    'Classify the sentiment of a book review as positive, neutral, or negative.',
+    'Return only one of those three words in lowercase.',
+    'Do not explain your answer.',
+    `Book title: ${normalizedTitle}`,
+    `Reviewer: ${normalizedUsername}`,
+    `Rating: ${Number.isFinite(Number(rating)) ? Number(rating) : 'unknown'}`,
+    `Review text: ${normalizedText || 'No written review provided.'}`,
+  ].join('\n');
+}
+
+function normalizeReviewSentiment(sentiment) {
+  const normalized = String(sentiment || '').toLowerCase().trim();
+  if (normalized.includes('positive')) return 'positive';
+  if (normalized.includes('neutral')) return 'neutral';
+  if (normalized.includes('negative')) return 'negative';
+  return null;
+}
+
+function fallbackReviewSentiment({ reviewText, rating }) {
+  const numericRating = Number(rating);
+  const normalizedText = cleanText(reviewText).toLowerCase();
+
+  if (Number.isFinite(numericRating)) {
+    if (numericRating >= 4) return 'positive';
+    if (numericRating <= 2) return 'negative';
+  }
+
+  if (/\b(love|excellent|great|amazing|wonderful|fantastic|enjoyed)\b/.test(normalizedText)) {
+    return 'positive';
+  }
+  if (/\b(bad|poor|terrible|awful|boring|hate|disappointing)\b/.test(normalizedText)) {
+    return 'negative';
+  }
+
+  return 'neutral';
+}
+
+async function generateReviewSentiment({ reviewText, rating, bookTitle, username } = {}) {
+  const prompt = buildReviewSentimentPrompt({ reviewText, rating, bookTitle, username });
+  const provider = getProviderConfig();
+
+  try {
+    if (provider === 'nvidia') {
+      const apiKey = process.env.NVIDIA_API_KEY || process.env.NVIDIA_NIM_API_KEY || process.env.NVIDIA_API_TOKEN;
+      if (apiKey) {
+        const sentiment = await callOpenAICompatibleEndpoint({
+          endpoint: process.env.NVIDIA_API_URL || 'https://integrate.api.nvidia.com/v1/chat/completions',
+          apiKey,
+          model: process.env.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct',
+          prompt,
+        });
+        return normalizeReviewSentiment(sentiment);
+      }
+    }
+
+    if (provider === 'openai' && process.env.OPENAI_API_KEY) {
+      const sentiment = await callOpenAICompatibleEndpoint({
+        endpoint: process.env.OPENAI_API_URL || 'https://api.openai.com/v1/chat/completions',
+        apiKey: process.env.OPENAI_API_KEY,
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        prompt,
+      });
+      return normalizeReviewSentiment(sentiment);
+    }
+  } catch (error) {
+    console.error('LLM failure during review sentiment analysis. Falling back to heuristic sentiment:', error.message);
+  }
+
+  return fallbackReviewSentiment({ reviewText, rating });
+}
+
 module.exports = {
   buildFallbackSummary,
   extractTextFromPdfBuffer,
   generateBookSummary,
   generateBookSummaryFromPdf,
+  generateReviewSentiment,
 };

@@ -1,7 +1,40 @@
 import React, { useState, useEffect } from 'react';
 
+const REPLY_TEMPLATES = [
+  {
+    label: 'Thank and acknowledge',
+    text: 'Thank you for taking the time to share your feedback. I appreciate your perspective and will keep it in mind for future readers.',
+  },
+  {
+    label: 'Invite more detail',
+    text: 'Thank you for the review. If you are open to it, I would appreciate any more detail about what worked well or what could be improved.',
+  },
+  {
+    label: 'Address concern',
+    text: 'Thank you for the honest feedback. I am sorry the experience did not meet expectations, and I will review this feedback carefully.',
+  },
+  {
+    label: 'Positive follow-up',
+    text: 'I am glad the book connected with you. Thank you for the encouraging feedback and for reading it.',
+  },
+];
+
+function formatSentimentLabel(sentiment) {
+  const normalized = String(sentiment || 'unknown').toLowerCase();
+  if (normalized === 'positive') return 'Positive';
+  if (normalized === 'neutral') return 'Neutral';
+  if (normalized === 'negative') return 'Negative';
+  return 'Pending';
+}
+
 function AuthorReviewsScreen({ currentUser }) {
   const [reviews, setReviews] = useState([]);
+  const [analytics, setAnalytics] = useState({
+    totalReviews: 0,
+    averageRating: 0,
+    sentimentCounts: { positive: 0, neutral: 0, negative: 0 },
+    sentimentPercentages: { positive: 0, neutral: 0, negative: 0 },
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [expandedReviews, setExpandedReviews] = useState(new Set());
@@ -29,6 +62,14 @@ function AuthorReviewsScreen({ currentUser }) {
 
       const data = await response.json();
       setReviews(data.reviews || []);
+      setAnalytics(
+        data.analytics || {
+          totalReviews: data.reviews?.length || 0,
+          averageRating: 0,
+          sentimentCounts: { positive: 0, neutral: 0, negative: 0 },
+          sentimentPercentages: { positive: 0, neutral: 0, negative: 0 },
+        }
+      );
     } catch (err) {
       setError(err.message);
     } finally {
@@ -129,6 +170,23 @@ function AuthorReviewsScreen({ currentUser }) {
     }
   };
 
+  const applyReplyTemplate = (reviewId, templateText) => {
+    setResponseText({ ...responseText, [reviewId]: templateText });
+    setExpandedReviews((current) => {
+      const next = new Set(current);
+      next.add(reviewId);
+      return next;
+    });
+  };
+
+  const sentimentClass = (sentiment) => {
+    const normalized = String(sentiment || '').toLowerCase();
+    if (normalized === 'positive') return 'sentiment-positive';
+    if (normalized === 'neutral') return 'sentiment-neutral';
+    if (normalized === 'negative') return 'sentiment-negative';
+    return 'sentiment-pending';
+  };
+
   return (
     <div className="author-reviews-screen">
       <h3>Reader Reviews & Feedback</h3>
@@ -144,6 +202,28 @@ function AuthorReviewsScreen({ currentUser }) {
         <div className="reviews-container">
           <p className="reviews-summary">Total reviews: {reviews.length}</p>
 
+          <div className="analytics-grid">
+            <div className="analytics-card">
+              <span className="analytics-label">Average rating</span>
+              <strong>{analytics.averageRating ? `${analytics.averageRating}/5` : 'No ratings yet'}</strong>
+            </div>
+            <div className="analytics-card">
+              <span className="analytics-label">Positive</span>
+              <strong>{analytics.sentimentCounts?.positive || 0}</strong>
+              <small>{analytics.sentimentPercentages?.positive || 0}%</small>
+            </div>
+            <div className="analytics-card">
+              <span className="analytics-label">Neutral</span>
+              <strong>{analytics.sentimentCounts?.neutral || 0}</strong>
+              <small>{analytics.sentimentPercentages?.neutral || 0}%</small>
+            </div>
+            <div className="analytics-card">
+              <span className="analytics-label">Negative</span>
+              <strong>{analytics.sentimentCounts?.negative || 0}</strong>
+              <small>{analytics.sentimentPercentages?.negative || 0}%</small>
+            </div>
+          </div>
+
           {reviews.map((review) => (
             <div
               key={review.id}
@@ -155,6 +235,9 @@ function AuthorReviewsScreen({ currentUser }) {
                   <span className="reviewer-info">
                     by {review.username} on{' '}
                     {new Date(review.submittedAt).toLocaleDateString()}
+                  </span>
+                  <span className={`sentiment-pill ${sentimentClass(review.sentiment)}`}>
+                    {formatSentimentLabel(review.sentiment)} sentiment
                   </span>
                 </div>
 
@@ -198,6 +281,18 @@ function AuthorReviewsScreen({ currentUser }) {
 
               {expandedReviews.has(review.id) && (
                 <div className="response-form">
+                  <div className="template-row">
+                    {REPLY_TEMPLATES.map((template) => (
+                      <button
+                        key={template.label}
+                        type="button"
+                        className="template-pill"
+                        onClick={() => applyReplyTemplate(review.id, template.text)}
+                      >
+                        {template.label}
+                      </button>
+                    ))}
+                  </div>
                   <textarea
                     value={responseText[review.id] || ''}
                     onChange={(e) =>
@@ -284,6 +379,39 @@ function AuthorReviewsScreen({ currentUser }) {
           margin-bottom: 15px;
         }
 
+        .analytics-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 12px;
+          margin-bottom: 18px;
+        }
+
+        .analytics-card {
+          background: linear-gradient(180deg, #2d2f3a 0%, #23232e 100%);
+          border: 1px solid #44475a;
+          border-radius: 10px;
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .analytics-label {
+          font-size: 12px;
+          color: #b8b9c2;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+
+        .analytics-card strong {
+          font-size: 18px;
+          color: #f8f8f2;
+        }
+
+        .analytics-card small {
+          color: #8be9fd;
+        }
+
         .reviews-container {
           display: flex;
           flex-direction: column;
@@ -311,6 +439,13 @@ function AuthorReviewsScreen({ currentUser }) {
 
         .review-meta {
           flex: 1;
+        }
+
+        .review-meta .sentiment-pill {
+          display: inline-flex;
+          align-items: center;
+          width: fit-content;
+          margin-top: 6px;
         }
 
         .book-title {
@@ -343,6 +478,42 @@ function AuthorReviewsScreen({ currentUser }) {
           font-size: 12px;
           color: #b8b9c2;
           margin-left: 5px;
+        }
+
+        .sentiment-pill {
+          display: inline-flex;
+          align-items: center;
+          width: fit-content;
+          margin-top: 6px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 600;
+          border: 1px solid transparent;
+        }
+
+        .sentiment-positive {
+          background: rgba(80, 250, 123, 0.14);
+          color: #7dffa0;
+          border-color: rgba(80, 250, 123, 0.35);
+        }
+
+        .sentiment-neutral {
+          background: rgba(139, 233, 253, 0.14);
+          color: #8be9fd;
+          border-color: rgba(139, 233, 253, 0.35);
+        }
+
+        .sentiment-negative {
+          background: rgba(255, 97, 136, 0.14);
+          color: #ff97b3;
+          border-color: rgba(255, 97, 136, 0.35);
+        }
+
+        .sentiment-pending {
+          background: rgba(98, 114, 164, 0.14);
+          color: #cfd4ea;
+          border-color: rgba(98, 114, 164, 0.35);
         }
 
         .flagged-badge {
@@ -418,6 +589,58 @@ function AuthorReviewsScreen({ currentUser }) {
           padding: 15px;
           border-radius: 4px;
           margin-top: 10px;
+        }
+
+        .template-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+
+        .template-pill {
+          border: 1px solid #6272a4;
+          background: rgba(98, 114, 164, 0.18);
+          color: #e6e6e6;
+          border-radius: 999px;
+          padding: 6px 10px;
+          font-size: 12px;
+          cursor: pointer;
+        }
+
+        .template-pill:hover {
+          background: rgba(98, 114, 164, 0.32);
+        }
+
+        .template-pill:focus-visible {
+          outline: 2px solid #8be9fd;
+          outline-offset: 2px;
+        }
+
+        .template-pill, .btn-submit-response, .btn-flag-review, .btn-confirm-flag, .btn-cancel-flag, .btn-toggle-response, .btn-delete-response {
+          transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .template-pill:hover, .btn-submit-response:hover, .btn-flag-review:hover, .btn-confirm-flag:hover, .btn-cancel-flag:hover, .btn-toggle-response:hover, .btn-delete-response:hover {
+          transform: translateY(-1px);
+        }
+
+        @media (max-width: 720px) {
+          .analytics-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .review-header,
+          .response-header,
+          .response-actions,
+          .flag-actions {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .btn-delete-response {
+            align-self: flex-start;
+          }
         }
 
         .response-form textarea {

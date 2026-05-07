@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const { randomUUID } = require('crypto');
-const { generateBookSummary, generateBookSummaryFromPdf } = require('./LLM');
+const { generateBookSummary, generateBookSummaryFromPdf, generateReviewSentiment } = require('./LLM');
 
 // File paths
 const USERS_FILE = path.join(__dirname, 'users.json');
@@ -819,6 +819,109 @@ function ensureBookReviews(bookReviews, bookId) {
   return bookReviews[bookIdStr];
 }
 
+function normalizeReviewSentimentValue(sentiment) {
+  const normalized = String(sentiment || '').toLowerCase().trim();
+  if (normalized.includes('positive')) return 'positive';
+  if (normalized.includes('neutral')) return 'neutral';
+  if (normalized.includes('negative')) return 'negative';
+  return null;
+}
+
+function buildReviewSentimentFallback(review) {
+  const rating = Number(review?.rating);
+  const reviewText = String(review?.reviewText || '').toLowerCase();
+
+  if (Number.isFinite(rating)) {
+    if (rating >= 4) return 'positive';
+    if (rating <= 2) return 'negative';
+  }
+
+  if (/\b(love|excellent|great|amazing|wonderful|fantastic|enjoyed)\b/.test(reviewText)) {
+    return 'positive';
+  }
+  if (/\b(bad|poor|terrible|awful|boring|hate|disappointing)\b/.test(reviewText)) {
+    return 'negative';
+  }
+
+  return 'neutral';
+}
+
+async function resolveReviewSentiment(review, context = {}) {
+  const existingSentiment = normalizeReviewSentimentValue(review?.sentiment);
+  if (existingSentiment) {
+    return existingSentiment;
+  }
+
+  try {
+    const sentiment = await generateReviewSentiment({
+      reviewText: review?.reviewText,
+      rating: review?.rating,
+      bookTitle: context.bookTitle || review?.bookTitle,
+      username: review?.username,
+    });
+
+    return normalizeReviewSentimentValue(sentiment) || buildReviewSentimentFallback(review);
+  } catch (error) {
+    console.warn('Unable to resolve review sentiment, falling back to rating-based analysis:', error.message);
+    return buildReviewSentimentFallback(review);
+  }
+}
+
+async function enrichReviewsWithSentiment(bookReviews, reviewEntries, context = {}) {
+  let changed = false;
+
+  for (const review of reviewEntries) {
+    if (!review) {
+      continue;
+    }
+
+    if (normalizeReviewSentimentValue(review.sentiment)) {
+      continue;
+    }
+
+    review.sentiment = await resolveReviewSentiment(review, context);
+    changed = true;
+  }
+
+  if (changed) {
+    writeBookReviews(bookReviews);
+  }
+
+  return changed;
+}
+
+function buildReviewAnalytics(reviews) {
+  const totals = reviews.reduce(
+    (acc, review) => {
+      const sentiment = normalizeReviewSentimentValue(review?.sentiment) || 'neutral';
+      acc.totalReviews += 1;
+      acc.totalRating += Number(review?.rating) || 0;
+      acc.sentiments[sentiment] += 1;
+      return acc;
+    },
+    {
+      totalReviews: 0,
+      totalRating: 0,
+      sentiments: { positive: 0, neutral: 0, negative: 0 },
+    }
+  );
+
+  const averageRating = totals.totalReviews > 0 ? Number((totals.totalRating / totals.totalReviews).toFixed(1)) : 0;
+
+  return {
+    totalReviews: totals.totalReviews,
+    averageRating,
+    sentimentCounts: totals.sentiments,
+    sentimentPercentages: totals.totalReviews > 0
+      ? {
+          positive: Number(((totals.sentiments.positive / totals.totalReviews) * 100).toFixed(1)),
+          neutral: Number(((totals.sentiments.neutral / totals.totalReviews) * 100).toFixed(1)),
+          negative: Number(((totals.sentiments.negative / totals.totalReviews) * 100).toFixed(1)),
+        }
+      : { positive: 0, neutral: 0, negative: 0 },
+  };
+}
+
 function submitReview(username, book, rating, reviewText) {
   if (!username || !book || !rating) {
     return null;
@@ -841,6 +944,7 @@ function submitReview(username, book, rating, reviewText) {
     reviewText: String(reviewText || '').trim(),
     submittedAt: new Date().toISOString(),
     helpful: 0,
+    sentiment: null,
   };
 
   if (existingReviewIndex !== -1) {
@@ -2469,17 +2573,27 @@ app.post('/api/reviews', (req, res) => {
   res.json({ message: 'Review submitted successfully.', review });
 });
 
-app.get('/api/reviews/:bookId', (req, res) => {
-  const { bookId } = req.params;
+app.get('/api/reviews/:bookId', async (req, res) => {
+  try {
+    const { bookId } = req.params;
+    const bookReviews = readBookReviews();
+    const reviewEntries = ensureBookReviews(bookReviews, bookId);
+    const books = readBooks();
+    const book = books.find((entry) => String(entry.id) === String(bookId));
 
-  const reviews = getReviewsForBook(bookId);
-  const ratingInfo = getAverageRating(bookId);
+    await enrichReviewsWithSentiment(bookReviews, reviewEntries, { bookTitle: book?.title });
 
-  res.json({
-    reviews,
-    rating: ratingInfo.average,
-    totalReviews: ratingInfo.totalReviews,
-  });
+    const ratingInfo = getAverageRating(bookId);
+
+    res.json({
+      reviews: reviewEntries,
+      rating: ratingInfo.average,
+      totalReviews: ratingInfo.totalReviews,
+    });
+  } catch (err) {
+    console.error('Error fetching reviews for book:', err);
+    res.status(500).json({ error: 'Failed to fetch reviews.' });
+  }
 });
 
 app.get('/api/book/:bookId/rating', (req, res) => {
@@ -2849,6 +2963,8 @@ app.post('/api/reviews/:bookId/:reviewId/response', (req, res) => {
     }
 
     const bookReviews = readBookReviews();
+    const books = readBooks();
+    const book = books.find((entry) => String(entry.id) === String(bookId));
     const bookIdStr = String(bookId);
     const reviews = bookReviews[bookIdStr] || [];
     const reviewIndex = reviews.findIndex((r) => r.id === reviewId);
@@ -2877,7 +2993,7 @@ app.post('/api/reviews/:bookId/:reviewId/response', (req, res) => {
       addNotificationForUser(
         review.username,
         'other',
-        `The author responded to your review for a book.`
+        `The author replied to your review for "${book?.title || review.bookTitle || 'your book'}": ${String(responseText).trim().slice(0, 180)}${String(responseText).trim().length > 180 ? '...' : ''}`
       );
     }
 
@@ -2929,7 +3045,7 @@ app.post('/api/reviews/:bookId/:reviewId/flag', (req, res) => {
 });
 
 // GET /api/reviews/author/:authorUsername/books - Get all reviews for an author's books
-app.get('/api/reviews/author/:authorUsername/books', (req, res) => {
+app.get('/api/reviews/author/:authorUsername/books', async (req, res) => {
   try {
     const { authorUsername } = req.params;
     const publishedBooks = readPublishedBooks();
@@ -2937,10 +3053,14 @@ app.get('/api/reviews/author/:authorUsername/books', (req, res) => {
     const bookReviews = readBookReviews();
 
     const allReviews = [];
+    let changed = false;
 
-    Object.entries(authorBooks).forEach(([bookId, bookInfo]) => {
+    for (const [bookId, bookInfo] of Object.entries(authorBooks)) {
       if (bookInfo.status === 'approved') {
-        const reviews = bookReviews[bookId] || [];
+        const reviews = ensureBookReviews(bookReviews, bookId);
+        const reviewSentimentChanged = await enrichReviewsWithSentiment(bookReviews, reviews, { bookTitle: bookInfo.title });
+        changed = changed || reviewSentimentChanged;
+
         reviews.forEach((review) => {
           allReviews.push({
             ...review,
@@ -2949,9 +3069,15 @@ app.get('/api/reviews/author/:authorUsername/books', (req, res) => {
           });
         });
       }
-    });
+    }
 
-    res.json({ reviews: allReviews });
+    if (changed) {
+      writeBookReviews(bookReviews);
+    }
+
+    const analytics = buildReviewAnalytics(allReviews);
+
+    res.json({ reviews: allReviews, analytics });
   } catch (err) {
     console.error('Error fetching author reviews:', err);
     res.status(500).json({ error: 'Failed to fetch author reviews.' });
