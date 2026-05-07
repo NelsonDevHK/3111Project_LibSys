@@ -18,6 +18,16 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
   const [previewBook, setPreviewBook] = useState(null);
   const [numPages, setNumPages] = useState(null);
 
+  const [selectedBooks, setSelectedBooks] = useState(new Set());
+  const [selectAll, setSelectAll] = useState(false);
+  const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
+  const [bulkEditFields, setBulkEditFields] = useState({ title: '', genre: '', description: '' });
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyEntries, setHistoryEntries] = useState([]);
+  const [genreFilter, setGenreFilter] = useState('');
+  const [authorFilter, setAuthorFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+
   const [formData, setFormData] = useState({
     title: '',
     author: '',
@@ -59,11 +69,20 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
   }, [fetchBooks]);
 
   // Filter books based on search
-  const filteredBooks = books.filter(book =>
-    book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    book.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    book.genre.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const authors = Array.from(new Set(books.map((b) => b.author).filter(Boolean)));
+
+  const filteredBooks = books.filter((book) => {
+    const matchesSearch =
+      book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      book.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      book.genre.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesGenre = genreFilter ? String(book.genre || '') === String(genreFilter) : true;
+    const matchesAuthor = authorFilter ? String(book.author || '') === String(authorFilter) : true;
+    const matchesStatus = statusFilter ? String(book.status || '') === String(statusFilter) : true;
+
+    return matchesSearch && matchesGenre && matchesAuthor && matchesStatus;
+  });
 
   // Handle add book form submission
   const handleAddSubmit = async (e) => {
@@ -176,6 +195,62 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
     }
   };
 
+  const toggleSelectBook = (bookId) => {
+    const next = new Set(selectedBooks);
+    if (next.has(String(bookId))) next.delete(String(bookId));
+    else next.add(String(bookId));
+    setSelectedBooks(next);
+    setSelectAll(false);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectAll) {
+      setSelectedBooks(new Set());
+      setSelectAll(false);
+      return;
+    }
+    const allIds = filteredBooks.map((b) => String(b.id));
+    setSelectedBooks(new Set(allIds));
+    setSelectAll(true);
+  };
+
+  const handleBulkEditApply = async () => {
+    if (selectedBooks.size === 0) return;
+    const ids = Array.from(selectedBooks);
+    const updates = ids.map((id) => ({ bookId: id, ...bulkEditFields }));
+    try {
+      const resp = await fetch('http://localhost:4000/api/librarian/published-books/bulk-edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates }),
+      });
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || 'Bulk edit failed');
+      setBulkEditModalOpen(false);
+      setSelectedBooks(new Set());
+      setSelectAll(false);
+      fetchBooks();
+      setMessage(result.message || 'Bulk edit applied');
+      setMessageType('success');
+    } catch (err) {
+      setMessage(err.message || 'Bulk edit failed');
+      setMessageType('error');
+    }
+  };
+
+  const fetchBookHistory = async (bookId) => {
+    try {
+      const resp = await fetch(`http://localhost:4000/api/book-history/${bookId}`);
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Failed to fetch history');
+      setHistoryEntries(data.history || []);
+      setHistoryModalOpen(true);
+    } catch (err) {
+      setMessage(err.message || 'Failed to fetch history');
+      setMessageType('error');
+    }
+  };
+
   if (loading) {
     return <div className="librarian-manage-books">Loading books...</div>;
   }
@@ -201,6 +276,92 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
             borderRadius: '4px',
           }}
         />
+        <div style={{ display: 'inline-block', marginLeft: '8px' }}>
+          <select
+            value={genreFilter}
+            onChange={(e) => setGenreFilter(e.target.value)}
+            style={{ marginRight: '8px', padding: '6px', backgroundColor: '#282a36', color: '#f8f8f2', borderRadius: '4px', border: '1px solid #6272a4' }}
+          >
+            <option value="">All Genres</option>
+            {GENRES.map((g) => (
+              <option key={g} value={g}>{g}</option>
+            ))}
+          </select>
+
+          <select
+            value={authorFilter}
+            onChange={(e) => setAuthorFilter(e.target.value)}
+            style={{ marginRight: '8px', padding: '6px', backgroundColor: '#282a36', color: '#f8f8f2', borderRadius: '4px', border: '1px solid #6272a4' }}
+          >
+            <option value="">All Authors</option>
+            {authors.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{ marginRight: '8px', padding: '6px', backgroundColor: '#282a36', color: '#f8f8f2', borderRadius: '4px', border: '1px solid #6272a4' }}
+          >
+            <option value="">All Statuses</option>
+            <option value="available">available</option>
+            <option value="borrowed">borrowed</option>
+            <option value="pending">pending</option>
+            <option value="approved">approved</option>
+          </select>
+
+          <button
+            onClick={() => setBulkEditModalOpen(true)}
+            disabled={selectedBooks.size === 0}
+            style={{
+              backgroundColor: selectedBooks.size === 0 ? '#444' : '#4fd6b0',
+              color: '#23232e',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              cursor: selectedBooks.size === 0 ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold',
+              marginRight: '8px',
+            }}
+          >
+            Bulk Edit
+          </button>
+
+          <button
+            onClick={async () => {
+              if (selectedBooks.size === 0) return;
+              if (!window.confirm(`Delete ${selectedBooks.size} selected books?`)) return;
+              try {
+                const ids = Array.from(selectedBooks);
+                const resp = await fetch('http://localhost:4000/api/librarian/published-books/bulk-delete', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ bookIds: ids }),
+                });
+                const result = await resp.json();
+                if (!resp.ok) throw new Error(result.error || 'Bulk delete failed');
+                setSelectedBooks(new Set());
+                setSelectAll(false);
+                fetchBooks();
+                setMessage(result.message || 'Bulk delete completed');
+                setMessageType('success');
+              } catch (err) {
+                setMessage(err.message || 'Bulk delete failed');
+                setMessageType('error');
+              }
+            }}
+            style={{
+              backgroundColor: '#ff6188',
+              color: '#f8f8f2',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+            }}
+          >
+            Bulk Delete
+          </button>
+        </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
           style={{
@@ -689,6 +850,78 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
         </div>
       )}
 
+      {/* Bulk Edit Modal */}
+      {bulkEditModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1002,
+          }}
+          onClick={() => setBulkEditModalOpen(false)}
+        >
+          <div
+            style={{ backgroundColor: '#23232e', padding: '20px', borderRadius: '4px', border: '1px solid #6272a4', width: '480px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h4 style={{ color: '#ffb86c', marginTop: 0 }}>Bulk Edit ({selectedBooks.size} books)</h4>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ color: '#8f93a2' }}>Title (applied to all selected if set)</label>
+              <input value={bulkEditFields.title} onChange={(e) => setBulkEditFields({ ...bulkEditFields, title: e.target.value })} style={{ width: '100%', padding: '8px', marginTop: '6px', backgroundColor: '#282a36', color: '#f8f8f2', border: '1px solid #6272a4', borderRadius: '4px' }} />
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ color: '#8f93a2' }}>Genre</label>
+              <select value={bulkEditFields.genre} onChange={(e) => setBulkEditFields({ ...bulkEditFields, genre: e.target.value })} style={{ width: '100%', padding: '8px', marginTop: '6px', backgroundColor: '#282a36', color: '#f8f8f2', border: '1px solid #6272a4', borderRadius: '4px' }}>
+                <option value="">(leave unchanged)</option>
+                {GENRES.map((g) => (<option key={g} value={g}>{g}</option>))}
+              </select>
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ color: '#8f93a2' }}>Description</label>
+              <textarea value={bulkEditFields.description} onChange={(e) => setBulkEditFields({ ...bulkEditFields, description: e.target.value })} style={{ width: '100%', padding: '8px', minHeight: '80px', marginTop: '6px', backgroundColor: '#282a36', color: '#f8f8f2', border: '1px solid #6272a4', borderRadius: '4px' }} />
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <button onClick={handleBulkEditApply} style={{ backgroundColor: '#4fd6b0', color: '#23232e', padding: '8px 12px', borderRadius: '4px', marginRight: '8px' }}>Apply</button>
+              <button onClick={() => setBulkEditModalOpen(false)} style={{ backgroundColor: '#6272a4', color: '#f8f8f2', padding: '8px 12px', borderRadius: '4px' }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {historyModalOpen && (
+        <div
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1003 }}
+          onClick={() => setHistoryModalOpen(false)}
+        >
+          <div style={{ backgroundColor: '#23232e', padding: '20px', borderRadius: '4px', border: '1px solid #6272a4', maxWidth: '800px', width: '90%', maxHeight: '80vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <h4 style={{ color: '#ffb86c', marginTop: 0 }}>Version History</h4>
+            {historyEntries.length === 0 ? (
+              <p style={{ color: '#8f93a2' }}>No history entries for this book.</p>
+            ) : (
+              <ul style={{ color: '#f8f8f2', paddingLeft: '16px' }}>
+                {historyEntries.map((h) => (
+                  <li key={h.id} style={{ marginBottom: '12px' }}>
+                    <div style={{ color: '#8f93a2', fontSize: '0.9rem' }}>{new Date(h.timestamp).toLocaleString()} — {h.action} by {h.actor || 'librarian'}</div>
+                    <pre style={{ background: '#1e1f26', padding: '8px', borderRadius: '4px', overflow: 'auto', color: '#f8f8f2' }}>{JSON.stringify({ before: h.before, after: h.after }, null, 2)}</pre>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div style={{ textAlign: 'right' }}>
+              <button onClick={() => setHistoryModalOpen(false)} style={{ backgroundColor: '#6272a4', color: '#f8f8f2', padding: '8px 12px', borderRadius: '4px' }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Books Table */}
       {filteredBooks.length === 0 ? (
         <p style={{ color: '#8f93a2' }}>No books found.</p>
@@ -696,6 +929,9 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #6272a4' }}>
+              <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c' }}>
+                <input type="checkbox" checked={selectAll} onChange={toggleSelectAll} />
+              </th>
               <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c' }}>Title</th>
               <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c' }}>Author</th>
               <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c' }}>Genre</th>
@@ -706,6 +942,13 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
           <tbody>
             {filteredBooks.map((book) => (
               <tr key={book.id} style={{ borderBottom: '1px solid #6272a4' }}>
+                <td style={{ padding: '8px' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedBooks.has(String(book.id))}
+                    onChange={() => toggleSelectBook(book.id)}
+                  />
+                </td>
                 <td style={{ padding: '8px', color: '#f8f8f2' }}>{book.title}</td>
                 <td style={{ padding: '8px', color: '#f8f8f2' }}>{book.author}</td>
                 <td style={{ padding: '8px', color: '#f8f8f2' }}>{book.genre}</td>
@@ -754,10 +997,23 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
                       padding: '4px 8px',
                       borderRadius: '4px',
                       cursor: 'pointer',
+                      marginRight: '4px',
                       fontSize: '0.85rem',
                     }}
                   >
                     Delete
+                  </button>
+                  <button
+                    onClick={() => fetchBookHistory(book.id)}
+                    style={{
+                      backgroundColor: '#8fb3ff',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    History
                   </button>
                 </td>
               </tr>

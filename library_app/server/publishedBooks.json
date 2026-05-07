@@ -26,8 +26,8 @@
     },
     "1775121575704": {
       "id": 1775121575704,
-      "title": "Book 3",
-      "genre": "Fiction",
+      "title": "",
+      "genre": "Non-Fiction",
       "description": "",
       "status": "approved",
       "borrowed": false,
@@ -49,9 +49,9 @@
     },
     "1777663362049": {
       "id": 1777663362049,
-      "title": "nkefcd",
-      "genre": "Non-Fiction,Science",
-      "description": "cdwcd",
+      "title": "",
+      "genre": "Non-Fiction",
+      "description": "",
       "status": "approved",
       "borrowed": false,
       "filePath": "bookAssets/1777663362040.pdf",

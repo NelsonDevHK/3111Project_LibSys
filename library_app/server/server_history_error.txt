@@ -1,0 +1,18 @@
+﻿Invoke-RestMethod : 
+
+
+
+Error
+
+
+Cannot GET /api/librarian/published-books/history/1775121561667
+
+
+
+位於 線路:5 字元:11
++     try { Invoke-RestMethod -Uri "http://localhost:4000/api/librarian ...
++           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (System.Net.HttpWebRequest:Htt 
+   pWebRequest) [Invoke-RestMethod]，WebException
+    + FullyQualifiedErrorId : WebCmdletWebResponseException,Microsoft.PowerShe 
+   ll.Commands.InvokeRestMethodCommand

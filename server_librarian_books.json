@@ -1,0 +1,70 @@
+﻿{
+    "books":  [
+                  {
+                      "id":  "1775121561667",
+                      "title":  "Book 1",
+                      "author":  "author1",
+                      "genre":  "Fiction",
+                      "description":  "",
+                      "status":  "rejected",
+                      "reads":  0,
+                      "coverPath":  "",
+                      "filePath":  "bookAssets/1775121561658.pdf"
+                  },
+                  {
+                      "id":  "1775121569327",
+                      "title":  "Book 2",
+                      "author":  "author1",
+                      "genre":  "Non-Fiction",
+                      "description":  "",
+                      "status":  "rejected",
+                      "reads":  0,
+                      "coverPath":  "",
+                      "filePath":  "bookAssets/1775121569318.pdf"
+                  },
+                  {
+                      "id":  "1775121575704",
+                      "title":  "Book 3",
+                      "author":  "author1",
+                      "genre":  "Fiction",
+                      "description":  "",
+                      "status":  "approved",
+                      "reads":  2,
+                      "coverPath":  "",
+                      "filePath":  "bookAssets/1775121575699.pdf"
+                  },
+                  {
+                      "id":  "1775121654931",
+                      "title":  "asdfadsfadsf",
+                      "author":  "author1",
+                      "genre":  "Fiction",
+                      "description":  "",
+                      "status":  "rejected",
+                      "reads":  0,
+                      "coverPath":  "",
+                      "filePath":  "bookAssets/1775121654926.pdf"
+                  },
+                  {
+                      "id":  "1777663362049",
+                      "title":  "nkefcd",
+                      "author":  "author1",
+                      "genre":  "Non-Fiction,Science",
+                      "description":  "cdwcd",
+                      "status":  "approved",
+                      "reads":  0,
+                      "coverPath":  "",
+                      "filePath":  "bookAssets/1777663362040.pdf"
+                  },
+                  {
+                      "id":  "1777665032618",
+                      "title":  "juy6",
+                      "author":  "author1",
+                      "genre":  "Non-Fiction,History",
+                      "description":  "dwe",
+                      "status":  "pending",
+                      "reads":  0,
+                      "coverPath":  "",
+                      "filePath":  "bookAssets\\1777665032606.pdf"
+                  }
+              ]
+}

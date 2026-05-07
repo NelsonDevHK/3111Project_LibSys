@@ -2,10 +2,10 @@
   "books": [
     {
       "id": 1775121575704,
-      "title": "Book 3",
+      "title": "",
       "authorUsername": "author1",
       "authorFullName": "Author One",
-      "genre": "Fiction",
+      "genre": "Non-Fiction",
       "description": "",
       "filePath": "bookAssets/1775121575699.pdf",
       "coverPath": "",
@@ -35,11 +35,11 @@
     },
     {
       "id": 1777663362049,
-      "title": "nkefcd",
+      "title": "",
       "authorUsername": "author1",
       "authorFullName": "Author One",
-      "genre": "Non-Fiction,Science",
-      "description": "cdwcd",
+      "genre": "Non-Fiction",
+      "description": "",
       "filePath": "bookAssets\\1777663362040.pdf",
       "coverPath": "",
       "publishDate": "2026-05-01",

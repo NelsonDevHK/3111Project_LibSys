@@ -14,6 +14,7 @@ const BORROWED_BOOKS_FILE = path.join(__dirname, 'borrowedBooks.json');
 const REJECTION_REASONS_FILE = path.join(__dirname, 'rejectionReason.json');
 const NOTIFICATIONS_FILE = path.join(__dirname, 'notifications.json');
 const PUBLISHED_BOOKS_FILE = path.join(__dirname, 'publishedBooks.json');
+const HISTORY_FILE = path.join(__dirname, 'server_history.json');
 const READING_HISTORY_FILE = path.join(__dirname, 'readingHistory.json');
 const BOOK_REVIEWS_FILE = path.join(__dirname, 'bookReviews.json');
 const BOOK_REQUESTS_FILE = path.join(__dirname, 'bookRequests.json');
@@ -720,6 +721,36 @@ function readPublishedBooks() {
 
 function writePublishedBooks(publishedBooks) {
   fs.writeFileSync(PUBLISHED_BOOKS_FILE, JSON.stringify(publishedBooks, null, 2));
+}
+
+function readServerHistory() {
+  if (!fs.existsSync(HISTORY_FILE)) return [];
+  try {
+    const raw = fs.readFileSync(HISTORY_FILE, 'utf-8');
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.error('Error reading server_history.json:', err);
+    return [];
+  }
+}
+
+function writeServerHistory(history) {
+  fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
+}
+
+function appendServerHistory(entry) {
+  try {
+    const history = readServerHistory();
+    history.unshift({
+      id: randomUUID(),
+      timestamp: new Date().toISOString(),
+      ...entry,
+    });
+    writeServerHistory(history);
+  } catch (err) {
+    console.error('Failed to append server history:', err);
+  }
 }
 
 function ensureAuthorPublishedBooks(publishedBooks, username) {
@@ -3142,10 +3173,24 @@ app.patch('/api/published-books/:username/:bookId', (req, res) => {
       });
     }
     
+    // take snapshot for history
+    const before = { ...targetBook };
+
     // Update allowed fields
     if (title !== undefined) targetBook.title = title;
     if (genre !== undefined) targetBook.genre = genre;
     if (description !== undefined) targetBook.description = description;
+
+    const after = { ...targetBook };
+    // append history
+    appendServerHistory({
+      action: 'published-book-update',
+      actor: req.body.actor || 'librarian',
+      bookId: String(bookId),
+      authorUsername: username,
+      before,
+      after,
+    });
 
     // Keep pendingBooks.json in sync if this title exists in pending submissions.
     const pendingBooks = readPendingBooks();
@@ -3190,9 +3235,19 @@ app.delete('/api/published-books/:username/:bookId', (req, res) => {
       return res.status(404).json({ error: 'Book not found.' });
     }
 
-    const bookTitle = authorBooks[bookId].title;
+    const before = { ...authorBooks[bookId] };
+    const bookTitle = before.title;
     delete authorBooks[bookId];
     writePublishedBooks(publishedBooks);
+
+    appendServerHistory({
+      action: 'published-book-delete',
+      actor: req.body?.actor || 'librarian',
+      bookId: String(bookId),
+      authorUsername: username,
+      before,
+      after: null,
+    });
 
     // Also remove the same book from books.json if it exists there.
     const books = readBooks();
@@ -3242,9 +3297,19 @@ app.post('/api/published-books/:username/bulk-delete', (req, res) => {
         return;
       }
 
-      const bookTitle = authorBooks[id].title;
+      const before = { ...authorBooks[id] };
+      const bookTitle = before.title;
       removed.push({ id, title: bookTitle });
       delete authorBooks[id];
+
+      appendServerHistory({
+        action: 'published-book-bulk-delete',
+        actor: req.body?.actor || 'librarian',
+        bookId: id,
+        authorUsername: username,
+        before,
+        after: null,
+      });
 
       // Also remove from books.json if present
       const libraryIndex = books.findIndex((b) => String(b.id) === String(id));
@@ -3695,6 +3760,131 @@ app.get('/api/librarian/published-books', (req, res) => {
   } catch (err) {
     console.error('Error fetching all active library books:', err);
     res.status(500).json({ error: 'Failed to fetch library books.' });
+  }
+});
+
+// POST /api/librarian/published-books/bulk-delete - Librarian deletes multiple books
+app.post('/api/librarian/published-books/bulk-delete', (req, res) => {
+  try {
+    const { bookIds } = req.body || {};
+    if (!Array.isArray(bookIds) || bookIds.length === 0) {
+      return res.status(400).json({ error: 'bookIds array is required.' });
+    }
+
+    const books = readBooks();
+    const publishedBooks = readPublishedBooks();
+    const removed = [];
+    const notFound = [];
+
+    bookIds.forEach((rawId) => {
+      const id = String(rawId);
+
+      const libIndex = books.findIndex((b) => String(b.id) === id);
+      if (libIndex === -1) {
+        notFound.push(id);
+        return;
+      }
+
+      const [removedBook] = books.splice(libIndex, 1);
+      removed.push({ id, title: removedBook.title });
+
+      // remove from publishedBooks map wherever present
+      Object.keys(publishedBooks).forEach((author) => {
+        if (publishedBooks[author] && publishedBooks[author][id]) {
+          const before = { ...publishedBooks[author][id] };
+          delete publishedBooks[author][id];
+          appendServerHistory({
+            action: 'librarian-bulk-delete',
+            actor: req.body?.actor || 'librarian',
+            bookId: id,
+            authorUsername: author,
+            before,
+            after: null,
+          });
+        }
+      });
+    });
+
+    writeBooks(books);
+    writePublishedBooks(publishedBooks);
+
+    res.json({ message: 'Bulk delete completed.', removedCount: removed.length, removed, notFound });
+  } catch (err) {
+    console.error('Error performing librarian bulk delete:', err);
+    res.status(500).json({ error: 'Failed to perform bulk delete.' });
+  }
+});
+
+// POST /api/librarian/published-books/bulk-edit - Apply updates to multiple active books
+app.post('/api/librarian/published-books/bulk-edit', (req, res) => {
+  try {
+    const { updates } = req.body || {}; // updates: [{ bookId, title?, genre?, description? }]
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ error: 'updates array is required.' });
+    }
+
+    const books = readBooks();
+    const publishedBooks = readPublishedBooks();
+    const applied = [];
+
+    updates.forEach((item) => {
+      const id = String(item.bookId || '');
+      if (!id) return;
+      const libIndex = books.findIndex((b) => String(b.id) === id);
+      const bookBefore = libIndex !== -1 ? { ...books[libIndex] } : null;
+
+      if (libIndex !== -1) {
+        if (item.title !== undefined) books[libIndex].title = item.title;
+        if (item.genre !== undefined) books[libIndex].genre = item.genre;
+        if (item.description !== undefined) books[libIndex].description = item.description;
+      }
+
+      // update publishedBooks entries too
+      Object.keys(publishedBooks).forEach((author) => {
+        if (publishedBooks[author] && publishedBooks[author][id]) {
+          const before = { ...publishedBooks[author][id] };
+          if (item.title !== undefined) publishedBooks[author][id].title = item.title;
+          if (item.genre !== undefined) publishedBooks[author][id].genre = item.genre;
+          if (item.description !== undefined) publishedBooks[author][id].description = item.description;
+          const after = { ...publishedBooks[author][id] };
+          appendServerHistory({
+            action: 'librarian-bulk-edit',
+            actor: req.body?.actor || 'librarian',
+            bookId: id,
+            authorUsername: author,
+            before,
+            after,
+          });
+        }
+      });
+
+      if (bookBefore) {
+        applied.push({ bookId: id });
+      }
+    });
+
+    writeBooks(books);
+    writePublishedBooks(publishedBooks);
+
+    res.json({ message: 'Bulk edit applied.', appliedCount: applied.length, applied });
+  } catch (err) {
+    console.error('Error performing librarian bulk edit:', err);
+    res.status(500).json({ error: 'Failed to perform bulk edit.' });
+  }
+});
+
+// GET /api/book-history/:bookId - Get history entries for a specific book
+app.get('/api/book-history/:bookId', (req, res) => {
+  try {
+    const { bookId } = req.params;
+    if (!bookId) return res.status(400).json({ error: 'bookId is required.' });
+
+    const history = readServerHistory();
+    const filtered = history.filter((h) => String(h.bookId) === String(bookId));
+    res.json({ history: filtered });
+  } catch (err) {
+    console.error('Error fetching book history:', err);
+    res.status(500).json({ error: 'Failed to fetch book history.' });
   }
 });
 
