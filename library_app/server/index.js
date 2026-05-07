@@ -2492,6 +2492,22 @@ app.post('/api/book-requests/:id/upload', async (req, res) => {
     books.push(newBook);
     writeBooks(books);
 
+    // Also add to publishedBooks.json with "available" status
+    const publishedBooks = readPublishedBooks();
+    const librarianBooks = ensureAuthorPublishedBooks(publishedBooks, 'library');
+    librarianBooks[newBook.id] = {
+      id: newBook.id,
+      title: newBook.title,
+      genre: newBook.genre,
+      description: newBook.summary,
+      status: 'available',
+      borrowed: false,
+      filePath: newBook.filePath,
+      publishDate: newBook.publishDate,
+      requestSource: 'book-request',
+    };
+    writePublishedBooks(publishedBooks);
+
     requestEntry.status = 'uploaded';
     requestEntry.reviewedAt = requestEntry.reviewedAt || new Date().toISOString();
     requestEntry.reviewedBy = requestEntry.reviewedBy || (librarianUsername ? String(librarianUsername) : 'librarian');
@@ -3549,36 +3565,26 @@ app.get('/api/author-trends/:username', (req, res) => {
 });
 
 // Librarian Endpoints - Manage All Published Books
-// GET /api/librarian/published-books - Fetch all published books (across all authors)
+// GET /api/librarian/published-books - Fetch all active library books for librarian management
 app.get('/api/librarian/published-books', (req, res) => {
   try {
-    const publishedBooks = readPublishedBooks();
     const books = readBooks();
-    const allBooks = [];
-    
-    Object.entries(publishedBooks).forEach(([authorUsername, authorBooks]) => {
-      Object.entries(authorBooks).forEach(([bookId, publishedBook]) => {
-        const libraryBook = books.find(b => String(b.id) === String(bookId));
-        const borrowCount = libraryBook ? (Number(libraryBook.borrowCount) || 0) : 0;
-        
-        allBooks.push({
-          id: bookId,
-          title: publishedBook.title || 'Untitled',
-          author: authorUsername,
-          genre: publishedBook.genre || 'Unknown',
-          description: publishedBook.description || '',
-          status: publishedBook.status || 'pending',
-          reads: borrowCount,
-          coverPath: publishedBook.coverPath || '',
-          filePath: publishedBook.filePath || '',
-        });
-      });
-    });
+    const allBooks = books.map((book) => ({
+      id: book.id,
+      title: book.title || 'Untitled',
+      author: book.authorFullName || book.authorUsername || 'Unknown',
+      genre: book.genre || 'Unknown',
+      description: book.description || '',
+      status: book.status || 'available',
+      reads: Number(book.borrowCount) || 0,
+      coverPath: book.coverPath || '',
+      filePath: book.filePath || '',
+    }));
     
     res.json({ books: allBooks });
   } catch (err) {
-    console.error('Error fetching all published books:', err);
-    res.status(500).json({ error: 'Failed to fetch published books.' });
+    console.error('Error fetching all active library books:', err);
+    res.status(500).json({ error: 'Failed to fetch library books.' });
   }
 });
 
@@ -3634,22 +3640,6 @@ app.post('/api/librarian/add-book',
       books.push(newBook);
       writeBooks(books);
       
-      // Also add to publishedBooks.json
-      const publishedBooks = readPublishedBooks();
-      const librarianBooks = ensureAuthorPublishedBooks(publishedBooks, 'librarian');
-      librarianBooks[newBook.id] = {
-        id: newBook.id,
-        title,
-        genre,
-        description,
-        status: 'approved',
-        borrowed: false,
-        filePath: relativePdfPath,
-        coverPath: relativeCoverPath,
-        publishDate: newBook.publishDate,
-      };
-      writePublishedBooks(publishedBooks);
-      
       addNotificationForRole(
         'librarian',
         'other',
@@ -3664,99 +3654,61 @@ app.post('/api/librarian/add-book',
   }
 );
 
-// PATCH /api/librarian/published-books/:bookId - Librarian updates any book
+// PATCH /api/librarian/published-books/:bookId - Librarian updates any active library book
 app.patch('/api/librarian/published-books/:bookId', (req, res) => {
   try {
     const { bookId } = req.params;
     const { title, genre, description } = req.body;
     
-    const publishedBooks = readPublishedBooks();
-    let targetBook = null;
-    let authorUsername = null;
+    const books = readBooks();
+    const libraryBook = books.find(b => String(b.id) === String(bookId));
     
-    // Find the book in published books
-    for (const [author, authorBooks] of Object.entries(publishedBooks)) {
-      if (authorBooks[bookId]) {
-        targetBook = authorBooks[bookId];
-        authorUsername = author;
-        break;
-      }
-    }
-    
-    if (!targetBook) {
-      return res.status(404).json({ error: 'Book not found.' });
+    if (!libraryBook) {
+      return res.status(404).json({ error: 'Book not found in active library.' });
     }
     
     // Update fields
-    if (title !== undefined) targetBook.title = title;
-    if (genre !== undefined) targetBook.genre = genre;
-    if (description !== undefined) targetBook.description = description;
+    if (title !== undefined) libraryBook.title = title;
+    if (genre !== undefined) libraryBook.genre = genre;
+    if (description !== undefined) libraryBook.description = description;
     
-    // Sync with books.json
-    const books = readBooks();
-    const libraryBook = books.find(b => String(b.id) === String(bookId));
-    if (libraryBook) {
-      if (title !== undefined) libraryBook.title = title;
-      if (genre !== undefined) libraryBook.genre = genre;
-      if (description !== undefined) libraryBook.description = description;
-      writeBooks(books);
-    }
-    
-    writePublishedBooks(publishedBooks);
-    res.json({ message: 'Book updated successfully.', book: targetBook });
+    writeBooks(books);
+    res.json({ message: 'Book updated successfully.', book: libraryBook });
   } catch (err) {
     console.error('Error updating book:', err);
     res.status(500).json({ error: 'Failed to update book.' });
   }
 });
 
-// DELETE /api/librarian/published-books/:bookId - Librarian deletes any book
+// DELETE /api/librarian/published-books/:bookId - Librarian deletes any active library book
 app.delete('/api/librarian/published-books/:bookId', (req, res) => {
   try {
     const { bookId } = req.params;
     
-    const publishedBooks = readPublishedBooks();
-    let bookTitle = null;
-    let authorUsername = null;
-    
-    // Find and delete from published books
-    for (const [author, authorBooks] of Object.entries(publishedBooks)) {
-      if (authorBooks[bookId]) {
-        bookTitle = authorBooks[bookId].title;
-        authorUsername = author;
-        delete authorBooks[bookId];
-        break;
-      }
-    }
-    
-    if (!bookTitle) {
-      return res.status(404).json({ error: 'Book not found.' });
-    }
-    
-    writePublishedBooks(publishedBooks);
-    
-    // Also delete from books.json
     const books = readBooks();
     const libraryBookIndex = books.findIndex(b => String(b.id) === String(bookId));
-    if (libraryBookIndex !== -1) {
-      const removedBook = books[libraryBookIndex];
-      books.splice(libraryBookIndex, 1);
-      writeBooks(books);
-      
-      // Notify borrower if book is currently borrowed
-      if (removedBook.borrowedBy) {
-        addNotificationForUser(
-          removedBook.borrowedBy,
-          'bookDeletionNotices',
-          `Book deletion notice: "${bookTitle}" was deleted by a librarian.`
-        );
-      }
+    
+    if (libraryBookIndex === -1) {
+      return res.status(404).json({ error: 'Book not found in active library.' });
+    }
+    
+    const removedBook = books[libraryBookIndex];
+    books.splice(libraryBookIndex, 1);
+    writeBooks(books);
+    
+    // Notify borrower if book is currently borrowed
+    if (removedBook.borrowedBy) {
+      addNotificationForUser(
+        removedBook.borrowedBy,
+        'bookDeletionNotices',
+        `Book deletion notice: "${removedBook.title}" was deleted by a librarian.`
+      );
     }
     
     addNotificationForRole(
       'librarian',
       'other',
-      `Book deleted: "${bookTitle}".`
+      `Book deleted: "${removedBook.title}".`
     );
     
     res.json({ message: 'Book deleted successfully.' });

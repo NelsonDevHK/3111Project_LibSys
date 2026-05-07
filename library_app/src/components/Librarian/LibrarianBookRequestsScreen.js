@@ -96,45 +96,6 @@ function LibrarianBookRequestsScreen({ currentUser }) {
     setBookDescription('');
   };
 
-  const handleApproveRequest = async (requestId) => {
-    const request = bookRequests.find((item) => item.id === requestId);
-    const requestPdfPath = request?.pdfFilePath || request?.filePath || '';
-
-    if (!requestPdfPath) {
-      alert('Attach a PDF before approving this request.');
-      return;
-    }
-
-    setSubmitting(true);
-    setFeedback('');
-
-    try {
-      const response = await fetch(
-        `http://localhost:4000/api/book-requests/${requestId}/review`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            isApproved: true,
-            librarianUsername: currentUser.username,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to approve request.');
-      }
-
-      setFeedback('Book request approved successfully.');
-      resetModalState();
-      fetchBookRequests({ silent: true });
-    } catch (err) {
-      alert('Error: ' + err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleRejectRequest = async (requestId) => {
     if (!rejectionReason.trim()) {
       alert('Please provide a rejection reason.');
@@ -648,7 +609,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
 
                   <div className="decision-buttons">
                     <button
-                      className="btn-upload"
+                      className="btn-approve"
                       onClick={() => handleUploadBook(selectedRequest.id)}
                       disabled={submitting || !hasPdf}
                     >
@@ -662,17 +623,6 @@ function LibrarianBookRequestsScreen({ currentUser }) {
                     >
                       Reject Request
                     </button>
-                  </div>
-
-                  <div className="approve-footer">
-                    <button
-                      className="btn-approve"
-                      onClick={() => handleApproveRequest(selectedRequest.id)}
-                      disabled={submitting || !hasPdf}
-                    >
-                      Approve Request
-                    </button>
-                    {!hasPdf && <p className="approval-note">A PDF must be attached before approval.</p>}
                   </div>
 
                   <div className="reject-section">
@@ -738,13 +688,10 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         .pdf-placeholder { margin: 0; padding: 16px; border: 1px dashed #6272a4; border-radius: 8px; color: #b8b9c2; background: rgba(98, 114, 164, 0.08); }
         .pdf-ready { color: #50fa7b; font-weight: 700; }
         .pdf-missing { color: #ffb86c; font-weight: 700; }
-        .approve-footer { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
-        .approval-note { margin: 0; color: #ffb86c; font-size: 13px; }
-        .btn-view-details, .btn-download, .btn-approve, .btn-upload, .btn-attach, .btn-reject, .btn-generate-summary, .btn-close-modal { border: none; border-radius: 4px; cursor: pointer; font-size: 13px; padding: 8px 12px; }
+        .btn-view-details, .btn-download, .btn-approve, .btn-attach, .btn-reject, .btn-generate-summary, .btn-close-modal { border: none; border-radius: 4px; cursor: pointer; font-size: 13px; padding: 8px 12px; }
         .btn-view-details { background-color: #ffb86c; color: #23232e; }
         .btn-approve { background-color: #50fa7b; color: #23232e; }
         .btn-download { background-color: #8be9fd; color: #23232e; }
-        .btn-upload { background-color: #ffb86c; color: #23232e; }
         .btn-attach { background-color: #6272a4; color: #fff; }
         .btn-reject { background-color: #ff6188; color: #fff; width: 100%; }
         .btn-generate-summary { background-color: #ffb86c; color: #23232e; width: 100%; }
@@ -763,6 +710,7 @@ function LibrarianBookRequestsScreen({ currentUser }) {
         .action-section { background-color: #23232e; border: 1px solid #44475a; padding: 15px; border-radius: 4px; margin-bottom: 12px; }
         .form-group label { display: block; margin-bottom: 6px; color: #ffb86c; font-weight: 700; }
         .form-group textarea, .reject-section textarea { width: 100%; padding: 10px; border: 1px solid #44475a; border-radius: 4px; background: #21222c; color: #e6e6e6; margin-bottom: 8px; }
+        .form-group { margin-bottom: 16px; }
         .decision-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
         .alternatives-row { flex-direction: column; }
         .alternatives-list { margin: 0; padding-left: 18px; }
