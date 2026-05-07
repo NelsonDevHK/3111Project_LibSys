@@ -5,6 +5,7 @@ const path = require('path');
 const cors = require('cors');
 const { randomUUID } = require('crypto');
 const { generateBookSummary, generateBookSummaryFromPdf, generateReviewSentiment } = require('./LLM');
+const { PDFDocument, StandardFonts } = require('pdf-lib');
 
 // File paths
 const USERS_FILE = path.join(__dirname, 'users.json');
@@ -1920,11 +1921,95 @@ async function downloadOnlineBookAsset(candidate, requestedTitle) {
 
   const fileBuffer = Buffer.from(await response.arrayBuffer());
   const extension = getExtensionFromUrlOrType(candidate.downloadUrl, response.headers.get('content-type'));
+  
+  // If the source is plain text, convert it to PDF for consistent library assets
+  if (extension === '.txt') {
+    try {
+      const text = fileBuffer.toString('utf8');
+      const pdfDoc = await PDFDocument.create();
+      const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      
+      const fontSize = 10;
+      const pageWidth = 612;
+      const pageHeight = 792;
+      const marginLeft = 50;
+      const marginRight = 50;
+      const marginTop = 50;
+      const marginBottom = 50;
+      const lineHeight = 14;
+      const maxWidth = pageWidth - marginLeft - marginRight;
+      const charsPerLine = Math.floor(maxWidth / (fontSize * 0.5));
+
+      let page = pdfDoc.addPage([pageWidth, pageHeight]);
+      let yPos = pageHeight - marginTop;
+
+      const paragraphs = text.split('\n');
+      
+      for (const paragraph of paragraphs) {
+        const trimmed = String(paragraph || '').trim();
+        
+        // Empty line = space
+        if (!trimmed) {
+          yPos -= lineHeight;
+          if (yPos < marginBottom) {
+            page = pdfDoc.addPage([pageWidth, pageHeight]);
+            yPos = pageHeight - marginTop;
+          }
+          continue;
+        }
+
+        // Split paragraph into lines that fit
+        let remaining = trimmed;
+        while (remaining.length > 0) {
+          let line = remaining.substring(0, charsPerLine);
+          
+          // Try to break at word boundary
+          if (remaining.length > charsPerLine) {
+            const lastSpace = line.lastIndexOf(' ');
+            if (lastSpace > 0 && lastSpace > charsPerLine * 0.6) {
+              line = line.substring(0, lastSpace);
+              remaining = remaining.substring(lastSpace).trim();
+            } else {
+              remaining = remaining.substring(charsPerLine).trim();
+            }
+          } else {
+            remaining = '';
+          }
+
+          // Check page break
+          if (yPos < marginBottom) {
+            page = pdfDoc.addPage([pageWidth, pageHeight]);
+            yPos = pageHeight - marginTop;
+          }
+
+          // Draw line
+          page.drawText(line, { x: marginLeft, y: yPos, size: fontSize, font: helvetica });
+          yPos -= lineHeight;
+        }
+      }
+
+      const pdfBytes = await pdfDoc.save();
+      const pdfFileName = `${Date.now()}-${sanitizeAssetFilename(requestedTitle)}.pdf`;
+      const absolutePath = path.join(assetsDir, pdfFileName);
+      fs.writeFileSync(absolutePath, Buffer.from(pdfBytes));
+      
+      const relativePath = path.relative(__dirname, absolutePath).replace(/\\/g, '/');
+      console.log(`✓ Converted text to PDF: ${relativePath}`);
+      return relativePath;
+    } catch (conversionErr) {
+      console.error('❌ PDF conversion failed:', conversionErr);
+      throw new Error(`Failed to convert text to PDF: ${conversionErr?.message || conversionErr}`);
+    }
+  }
+
+  // For non-text files (PDF, EPUB, etc.), save as-is
   const fileName = `${Date.now()}-${sanitizeAssetFilename(requestedTitle)}${extension}`;
   const absolutePath = path.join(assetsDir, fileName);
-
   fs.writeFileSync(absolutePath, fileBuffer);
-  return path.relative(__dirname, absolutePath).replace(/\\/g, '/');
+  
+  const relativePath = path.relative(__dirname, absolutePath).replace(/\\/g, '/');
+  console.log(`✓ Downloaded asset: ${relativePath}`);
+  return relativePath;
 }
 
 async function suggestAlternativeTitles({ title, author, genre }) {
@@ -2456,7 +2541,7 @@ app.post('/api/book-requests/:id/upload', async (req, res) => {
     }
 
     const requestEntry = bookRequests[requestIndex];
-    if (!['approved', 'pending'].includes(String(requestEntry.status))) {
+    if (!['approved', 'pending', 'downloaded_pending'].includes(String(requestEntry.status))) {
       return res.status(409).json({ error: 'Only pending or approved requests can be uploaded.' });
     }
 
@@ -2581,11 +2666,14 @@ app.post('/api/book-requests/:id/download', async (req, res) => {
     const candidate = await fetchGutendexCandidate(requestEntry);
     if (!candidate) {
       const alternatives = await suggestAlternativeTitles(requestEntry);
+      const unchangedStatus = ['pending', 'approved'].includes(String(requestEntry.status || '').toLowerCase())
+        ? String(requestEntry.status || '').toLowerCase()
+        : 'pending';
       const updatedRequest = persistProgress({
-        status: 'rejected',
-        reviewedAt: new Date().toISOString(),
-        reviewedBy: librarianUsername ? String(librarianUsername) : 'librarian',
-        rejectionReason: 'Unable to find a downloadable copy online.',
+        status: unchangedStatus,
+        reviewedAt: requestEntry.reviewedAt || null,
+        reviewedBy: requestEntry.reviewedBy || null,
+        rejectionReason: requestEntry.rejectionReason || '',
         alternativeSuggestions: alternatives,
         downloadProgress: 100,
         downloadStatus: 'failed',
@@ -2600,8 +2688,9 @@ app.post('/api/book-requests/:id/download', async (req, res) => {
           : `We could not find an online downloadable copy for "${requestEntry.title}".`
       );
 
-      return res.status(404).json({
-        error: 'No downloadable source found for the requested title.',
+      return res.json({
+        message: 'No downloadable source found for this request.',
+        found: false,
         alternatives,
         request: updatedRequest,
       });
@@ -2615,71 +2704,46 @@ app.post('/api/book-requests/:id/download', async (req, res) => {
 
     const filePath = await downloadOnlineBookAsset(candidate, requestEntry.title);
 
-    persistProgress({
-      downloadProgress: 70,
-      downloadStatus: 'summarizing',
-      downloadError: '',
-    });
-
-    const generatedSummary = String(candidate.summary || '').trim() || await generateBookSummary({
-      title: candidate.title || requestEntry.title,
-      author: candidate.author || requestEntry.author,
-      genre: requestEntry.genre,
-      summaryStyle: 'medium',
-      notes: requestEntry.reason,
-    });
-
-    const books = readBooks();
-    const newBook = {
-      id: Date.now(),
-      title: candidate.title || requestEntry.title,
-      authorUsername: 'library',
-      authorFullName: candidate.author || requestEntry.author,
-      genre: requestEntry.genre,
-      summary: generatedSummary,
-      description: generatedSummary,
-      publishDate: new Date().toISOString().split('T')[0],
-      approved: true,
-      status: 'available',
-      borrowCount: 0,
-      filePath,
-      requestSource: 'book-request',
-      downloadMethod: 'online-source',
-      sourceUrl: candidate.sourceUrl || candidate.downloadUrl || '',
-      sourceLabel: candidate.sourceLabel || 'Online source',
-    };
-    books.push(newBook);
-    writeBooks(books);
+    // Instead of auto-creating a library book, save the downloaded asset to the request
+    // and mark it as downloaded_pending so a librarian can review and confirm upload.
+    const generatedSummary = String(candidate.summary || '').trim();
 
     const updatedRequest = persistProgress({
-      status: 'uploaded',
+      status: 'downloaded_pending',
       reviewedAt: new Date().toISOString(),
       reviewedBy: librarianUsername ? String(librarianUsername) : 'librarian',
       rejectionReason: '',
-      uploadedAt: new Date().toISOString(),
-      uploadedBookId: newBook.id,
+      uploadedAt: null,
+      uploadedBookId: null,
       filePath,
+      candidate: {
+        title: candidate.title || requestEntry.title,
+        author: candidate.author || requestEntry.author,
+        sourceUrl: candidate.sourceUrl || candidate.downloadUrl || '',
+        sourceLabel: candidate.sourceLabel || 'Online source',
+        summary: generatedSummary,
+      },
       downloadProgress: 100,
       downloadStatus: 'completed',
       downloadError: '',
     });
 
+    // Notify requester that a candidate was downloaded and is pending librarian review
     addNotificationForUser(
       requestEntry.requestedBy,
       'other',
-      `Your requested book "${requestEntry.title}" was downloaded and added to the library.`
+      `A candidate for your requested book "${requestEntry.title}" was downloaded and is pending librarian review.`
     );
-    notifyUsersForSimilarAuthorDownloads(requestEntry, newBook.title);
 
     res.json({
-      message: 'Requested book downloaded and added successfully.',
+      message: 'Requested book downloaded and pending librarian review.',
+      found: true,
       request: updatedRequest,
-      book: newBook,
       source: {
         label: candidate.sourceLabel,
         url: candidate.sourceUrl || candidate.downloadUrl,
       },
-      summaryGenerated: !String(candidate.summary || '').trim(),
+      summaryGenerated: Boolean(generatedSummary),
     });
   } catch (err) {
     console.error('Error downloading requested book:', err);
@@ -2705,6 +2769,52 @@ app.post('/api/book-requests/:id/download', async (req, res) => {
     }
 
     res.status(500).json({ error: 'Failed to download requested book.' });
+  }
+});
+
+app.post('/api/book-requests/:id/generate-summary', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { summaryStyle } = req.body || {};
+
+    const bookRequests = readBookRequests();
+    const requestIndex = findBookRequestIndex(bookRequests, id);
+    if (requestIndex === -1) {
+      return res.status(404).json({ error: 'Book request not found.' });
+    }
+
+    const requestEntry = bookRequests[requestIndex];
+    const pdfPath = resolveBookRequestPdfPath(requestEntry);
+    if (!pdfPath) {
+      return res.status(400).json({ error: 'Download or attach a PDF before generating summary.' });
+    }
+
+    const absolutePdfPath = path.resolve(__dirname, pdfPath);
+    if (!fs.existsSync(absolutePdfPath)) {
+      return res.status(404).json({ error: 'Attached PDF file not found on server.' });
+    }
+
+    const pdfBuffer = fs.readFileSync(absolutePdfPath);
+    const summary = await generateBookSummaryFromPdf({
+      title: requestEntry.title,
+      author: requestEntry.author,
+      genre: requestEntry.genre,
+      summaryStyle: summaryStyle || 'medium',
+      pdfBuffer,
+    });
+
+    requestEntry.generatedSummary = summary;
+    bookRequests[requestIndex] = requestEntry;
+    writeBookRequests(bookRequests);
+
+    res.json({
+      message: 'Summary generated successfully.',
+      summary,
+      request: requestEntry,
+    });
+  } catch (err) {
+    console.error('Error generating request summary from PDF:', err);
+    res.status(500).json({ error: 'Failed to generate request summary.' });
   }
 });
 
