@@ -1549,6 +1549,350 @@ function findBookRequestIndex(bookRequests, requestId) {
   return bookRequests.findIndex((request) => String(request?.id) === String(requestId));
 }
 
+function normalizeRequestKey(title, author) {
+  return `${String(title || '').trim().toLowerCase()}::${String(author || '').trim().toLowerCase()}`;
+}
+
+function buildRequestPopularityMap(bookRequests) {
+  return (bookRequests || []).reduce((acc, request) => {
+    const key = normalizeRequestKey(request?.title, request?.author);
+    if (!key || key === '::') {
+      return acc;
+    }
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function inferUrgencyScore(reason) {
+  const normalizedReason = String(reason || '').toLowerCase();
+  if (/\b(urgent|asap|immediately|deadline|exam|assignment|project due|needed soon)\b/.test(normalizedReason)) {
+    return 4;
+  }
+  if (/\b(soon|important|priority)\b/.test(normalizedReason)) {
+    return 2;
+  }
+  return 0;
+}
+
+function getPriorityLevel(priorityScore) {
+  if (priorityScore >= 11) return 'high';
+  if (priorityScore >= 6) return 'medium';
+  return 'low';
+}
+
+function enrichBookRequestsWithPriority(bookRequests, populationSource = null) {
+  const source = Array.isArray(populationSource) ? populationSource : bookRequests;
+  const popularityMap = buildRequestPopularityMap(source);
+  const books = readBooks();
+
+  const enriched = (bookRequests || []).map((request) => {
+    const key = normalizeRequestKey(request?.title, request?.author);
+    const popularity = popularityMap[key] || 1;
+    const submittedAtMs = new Date(request?.submittedAt || Date.now()).getTime();
+    const waitingDays = Number.isFinite(submittedAtMs)
+      ? Math.max(0, Math.floor((Date.now() - submittedAtMs) / (1000 * 60 * 60 * 24)))
+      : 0;
+
+    const urgencyScore = inferUrgencyScore(request?.reason);
+    const popularityScore = Math.max(0, popularity - 1) * 3;
+    const waitingScore = Math.min(4, Math.floor(waitingDays / 2));
+    const priorityScore = urgencyScore + popularityScore + waitingScore;
+
+    return {
+      ...request,
+      popularityCount: popularity,
+      waitingDays,
+      priorityScore,
+      priorityLevel: getPriorityLevel(priorityScore),
+      alternativeSuggestions: Array.isArray(request?.alternativeSuggestions)
+        ? request.alternativeSuggestions
+        : [],
+      pdfFilePath: resolveBookRequestPdfPath(request, books),
+      downloadProgress: Number.isFinite(Number(request?.downloadProgress))
+        ? Math.min(100, Math.max(0, Number(request.downloadProgress)))
+        : 0,
+      downloadStatus: String(request?.downloadStatus || 'idle'),
+      downloadError: String(request?.downloadError || ''),
+    };
+  });
+
+  return enriched.sort((left, right) => {
+    const priorityDiff = Number(right.priorityScore || 0) - Number(left.priorityScore || 0);
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
+
+    return new Date(right.submittedAt || 0).getTime() - new Date(left.submittedAt || 0).getTime();
+  });
+}
+
+function buildBookRequestAnalytics(bookRequests) {
+  const requests = Array.isArray(bookRequests) ? bookRequests : [];
+  const genreCounts = {};
+  const authorCounts = {};
+
+  requests.forEach((request) => {
+    const genre = String(request?.genre || 'Unknown').trim() || 'Unknown';
+    const author = String(request?.author || 'Unknown').trim() || 'Unknown';
+    genreCounts[genre] = (genreCounts[genre] || 0) + 1;
+    authorCounts[author] = (authorCounts[author] || 0) + 1;
+  });
+
+  const toSortedArray = (input) => {
+    return Object.entries(input)
+      .map(([label, count]) => ({ label, count }))
+      .sort((left, right) => right.count - left.count)
+      .slice(0, 10);
+  };
+
+  return {
+    totalRequests: requests.length,
+    byStatus: requests.reduce((acc, request) => {
+      const status = String(request?.status || 'unknown').toLowerCase();
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {}),
+    topGenres: toSortedArray(genreCounts),
+    topAuthors: toSortedArray(authorCounts),
+  };
+}
+
+function sanitizeAssetFilename(value) {
+  return String(value || 'requested-book')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 50) || 'requested-book';
+}
+
+function getExtensionFromUrlOrType(url, contentType) {
+  const normalizedType = String(contentType || '').toLowerCase();
+  if (normalizedType.includes('pdf')) return '.pdf';
+  if (normalizedType.includes('text/plain')) return '.txt';
+  if (normalizedType.includes('epub')) return '.epub';
+
+  const urlPath = String(url || '').split('?')[0].toLowerCase();
+  if (urlPath.endsWith('.pdf')) return '.pdf';
+  if (urlPath.endsWith('.txt')) return '.txt';
+  if (urlPath.endsWith('.epub')) return '.epub';
+  return '.txt';
+}
+
+function resolveBookRequestPdfPath(request, books = null) {
+  if (String(request?.filePath || '').trim()) {
+    return String(request.filePath).trim();
+  }
+
+  if (!request?.uploadedBookId) {
+    return '';
+  }
+
+  const bookList = Array.isArray(books) ? books : readBooks();
+  const uploadedBook = bookList.find((book) => String(book?.id) === String(request.uploadedBookId));
+  return String(uploadedBook?.filePath || '').trim();
+}
+
+function isTimeoutFetchError(error) {
+  const code = String(error?.cause?.code || error?.code || '');
+  const message = String(error?.message || '');
+  return (
+    code === 'ETIMEDOUT' ||
+    code === 'ECONNRESET' ||
+    code === 'UND_ERR_CONNECT_TIMEOUT' ||
+    /fetch failed/i.test(message)
+  );
+}
+
+async function fetchWithRetry(url, options = {}, attempts = 3, delayMs = 800) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, options);
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts || !isTimeoutFetchError(error)) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs * attempt));
+    }
+  }
+
+  throw lastError || new Error('Unknown fetch failure.');
+}
+
+async function fetchGutendexCandidate({ title, author }) {
+  const query = `${String(title || '').trim()} ${String(author || '').trim()}`.trim();
+  if (!query) {
+    return null;
+  }
+
+  let data;
+  try {
+    const response = await fetchWithRetry(
+      `https://gutendex.com/books?search=${encodeURIComponent(query)}`,
+      {},
+      2,
+      700
+    );
+
+    if (!response.ok) {
+      throw new Error(`Download source lookup failed (${response.status}).`);
+    }
+
+    data = await response.json();
+  } catch (error) {
+    if (isTimeoutFetchError(error)) {
+      console.warn('Gutendex lookup timed out; continuing without online source candidate.', error?.message || error);
+      return null;
+    }
+    throw error;
+  }
+
+  const results = Array.isArray(data?.results) ? data.results : [];
+  if (results.length === 0) {
+    return null;
+  }
+
+  const normalizedAuthor = String(author || '').toLowerCase().trim();
+  const ranked = results.sort((left, right) => {
+    const leftAuthor = (left?.authors || []).some((entry) => String(entry?.name || '').toLowerCase().includes(normalizedAuthor));
+    const rightAuthor = (right?.authors || []).some((entry) => String(entry?.name || '').toLowerCase().includes(normalizedAuthor));
+    if (leftAuthor === rightAuthor) return 0;
+    return leftAuthor ? -1 : 1;
+  });
+
+  const selected = ranked[0];
+  const formats = selected?.formats || {};
+  const downloadUrl =
+    formats['application/pdf'] ||
+    formats['text/plain; charset=utf-8'] ||
+    formats['text/plain'] ||
+    formats['application/epub+zip'];
+
+  if (!downloadUrl) {
+    return null;
+  }
+
+  const subjects = Array.isArray(selected?.subjects) ? selected.subjects.slice(0, 3) : [];
+  const summary = subjects.length > 0
+    ? `Public-domain edition sourced online. Key subjects: ${subjects.join(', ')}.`
+    : '';
+
+  return {
+    sourceLabel: 'Project Gutenberg',
+    sourceUrl: selected?.url || '',
+    downloadUrl,
+    title: String(selected?.title || title || '').trim(),
+    author: (selected?.authors || []).map((entry) => entry?.name).filter(Boolean).join(', ') || String(author || '').trim(),
+    summary,
+  };
+}
+
+async function downloadOnlineBookAsset(candidate, requestedTitle) {
+  const response = await fetchWithRetry(candidate.downloadUrl, {}, 2, 1000);
+  if (!response.ok) {
+    throw new Error(`Book download failed (${response.status}).`);
+  }
+
+  const fileBuffer = Buffer.from(await response.arrayBuffer());
+  const extension = getExtensionFromUrlOrType(candidate.downloadUrl, response.headers.get('content-type'));
+  const fileName = `${Date.now()}-${sanitizeAssetFilename(requestedTitle)}${extension}`;
+  const absolutePath = path.join(assetsDir, fileName);
+
+  fs.writeFileSync(absolutePath, fileBuffer);
+  return path.relative(__dirname, absolutePath).replace(/\\/g, '/');
+}
+
+async function suggestAlternativeTitles({ title, author, genre }) {
+  const query = [title, author, genre].filter(Boolean).join(' ');
+  if (!query.trim()) {
+    return [];
+  }
+
+  try {
+    const response = await fetchWithRetry(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=8`, {}, 2, 700);
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    const docs = Array.isArray(data?.docs) ? data.docs : [];
+    const requestedTitleNormalized = String(title || '').toLowerCase().trim();
+
+    return docs
+      .map((doc) => ({
+        title: String(doc?.title || '').trim(),
+        author: Array.isArray(doc?.author_name) ? doc.author_name[0] : 'Unknown',
+        year: doc?.first_publish_year || null,
+        sourceUrl: doc?.key ? `https://openlibrary.org${doc.key}` : '',
+      }))
+      .filter((entry) => entry.title && entry.title.toLowerCase() !== requestedTitleNormalized)
+      .slice(0, 5);
+  } catch (error) {
+    return [];
+  }
+}
+
+function notifyUsersForSimilarAuthorDownloads(requestEntry, uploadedBookTitle) {
+  const allRequests = readBookRequests();
+  const normalizedAuthor = String(requestEntry?.author || '').toLowerCase().trim();
+  const normalizedTitle = String(uploadedBookTitle || '').toLowerCase().trim();
+
+  allRequests
+    .filter((entry) => {
+      return (
+        String(entry?.author || '').toLowerCase().trim() === normalizedAuthor &&
+        String(entry?.title || '').toLowerCase().trim() !== normalizedTitle &&
+        String(entry?.requestedBy || '').trim() &&
+        String(entry?.requestedBy || '').trim() !== String(requestEntry?.requestedBy || '').trim()
+      );
+    })
+    .forEach((entry) => {
+      addNotificationForUser(
+        entry.requestedBy,
+        'other',
+        `A similar title by ${requestEntry.author} is now available: "${uploadedBookTitle}".`
+      );
+    });
+}
+
+function computeDownloadedBookStats() {
+  const books = readBooks();
+  const downloadedBooks = books.filter((book) => String(book?.requestSource || '') === 'book-request');
+
+  const genreCounts = {};
+  let totalBorrows = 0;
+  downloadedBooks.forEach((book) => {
+    const genre = String(book?.genre || 'Unknown').trim() || 'Unknown';
+    genreCounts[genre] = (genreCounts[genre] || 0) + 1;
+    totalBorrows += Number(book?.borrowCount) || 0;
+  });
+
+  return {
+    totalDownloadedBooks: downloadedBooks.length,
+    totalBorrows,
+    averageBorrowsPerBook: downloadedBooks.length > 0
+      ? Number((totalBorrows / downloadedBooks.length).toFixed(1))
+      : 0,
+    books: downloadedBooks.map((book) => ({
+      id: book.id,
+      title: book.title,
+      author: book.authorFullName || book.authorUsername || 'Unknown',
+      genre: book.genre || 'Unknown',
+      borrowCount: Number(book.borrowCount) || 0,
+      status: book.status || 'available',
+      sourceUrl: book.sourceUrl || '',
+      publishDate: book.publishDate || '',
+    })),
+    genreBreakdown: Object.entries(genreCounts)
+      .map(([label, count]) => ({ label, count }))
+      .sort((left, right) => right.count - left.count),
+  };
+}
+
 function readRejectionReasons() {
   if (!fs.existsSync(REJECTION_REASONS_FILE)) {
     return {};
@@ -1802,6 +2146,10 @@ app.post('/api/book-requests', (req, res) => {
       rejectionReason: '',
       uploadedAt: null,
       uploadedBookId: null,
+      downloadProgress: 0,
+      downloadStatus: 'idle',
+      downloadError: '',
+      alternativeSuggestions: [],
     };
 
     if (!requestEntry.title || !requestEntry.author || !requestEntry.genre || !requestEntry.reason) {
@@ -1828,7 +2176,8 @@ app.post('/api/book-requests', (req, res) => {
 app.get('/api/book-requests', (req, res) => {
   try {
     const { requestedBy, status } = req.query;
-    let bookRequests = readBookRequests();
+    const allBookRequests = readBookRequests();
+    let bookRequests = allBookRequests;
 
     if (requestedBy) {
       bookRequests = bookRequests.filter(
@@ -1843,14 +2192,25 @@ app.get('/api/book-requests', (req, res) => {
       );
     }
 
-    res.json({ bookRequests });
+    const enrichedRequests = enrichBookRequestsWithPriority(bookRequests, allBookRequests);
+    res.json({ bookRequests: enrichedRequests });
   } catch (err) {
     console.error('Error fetching book requests:', err);
     res.status(500).json({ error: 'Failed to fetch book requests.' });
   }
 });
 
-app.post('/api/book-requests/:id/review', (req, res) => {
+app.get('/api/book-requests/analytics', (req, res) => {
+  try {
+    const analytics = buildBookRequestAnalytics(readBookRequests());
+    res.json({ analytics });
+  } catch (err) {
+    console.error('Error fetching book request analytics:', err);
+    res.status(500).json({ error: 'Failed to fetch book request analytics.' });
+  }
+});
+
+app.post('/api/book-requests/:id/review', async (req, res) => {
   try {
     const { id } = req.params;
     const { isApproved, librarianUsername, rejectionReason } = req.body || {};
@@ -1872,14 +2232,22 @@ app.post('/api/book-requests/:id/review', (req, res) => {
     requestEntry.reviewedAt = new Date().toISOString();
     requestEntry.reviewedBy = librarianUsername ? String(librarianUsername) : 'librarian';
     requestEntry.rejectionReason = isApproved ? '' : String(rejectionReason).trim();
+
+    if (!isApproved) {
+      requestEntry.alternativeSuggestions = await suggestAlternativeTitles(requestEntry);
+    }
+
     bookRequests[requestIndex] = requestEntry;
     writeBookRequests(bookRequests);
 
     if (!isApproved) {
+      const alternativesText = Array.isArray(requestEntry.alternativeSuggestions) && requestEntry.alternativeSuggestions.length > 0
+        ? ' Suggested alternatives are available in the request details.'
+        : '';
       addNotificationForUser(
         requestEntry.requestedBy,
         'other',
-        `Book request rejected: "${requestEntry.title}" was rejected. Reason: ${requestEntry.rejectionReason}`
+        `Book request rejected: "${requestEntry.title}" was rejected. Reason: ${requestEntry.rejectionReason}.${alternativesText}`
       );
     }
 
@@ -1890,6 +2258,48 @@ app.post('/api/book-requests/:id/review', (req, res) => {
   } catch (err) {
     console.error('Error reviewing book request:', err);
     res.status(500).json({ error: 'Failed to review book request.' });
+  }
+});
+
+app.post('/api/book-requests/:id/attach-pdf', upload.fields([{ name: 'file', maxCount: 1 }]), (req, res) => {
+  try {
+    const { id } = req.params;
+    const { librarianUsername } = req.body || {};
+    const pdfFile = req.files?.file?.[0];
+
+    if (!pdfFile) {
+      return res.status(400).json({ error: 'A PDF file is required.' });
+    }
+
+    if (pdfFile.mimetype !== 'application/pdf') {
+      return res.status(400).json({ error: 'Only PDF files are allowed.' });
+    }
+
+    const bookRequests = readBookRequests();
+    const requestIndex = findBookRequestIndex(bookRequests, id);
+
+    if (requestIndex === -1) {
+      return res.status(404).json({ error: 'Book request not found.' });
+    }
+
+    const requestEntry = bookRequests[requestIndex];
+    const relativePdfPath = path.relative(__dirname, pdfFile.path).replace(/\\/g, '/');
+
+    requestEntry.filePath = relativePdfPath;
+    requestEntry.pdfAttachedAt = new Date().toISOString();
+    requestEntry.pdfAttachedBy = librarianUsername ? String(librarianUsername) : 'librarian';
+    requestEntry.pdfSource = 'manual-upload';
+    bookRequests[requestIndex] = requestEntry;
+    writeBookRequests(bookRequests);
+
+    res.json({
+      message: 'PDF attached successfully.',
+      request: requestEntry,
+      pdfFilePath: relativePdfPath,
+    });
+  } catch (err) {
+    console.error('Error attaching PDF to book request:', err);
+    res.status(500).json({ error: 'Failed to attach PDF to book request.' });
   }
 });
 
@@ -1910,6 +2320,11 @@ app.post('/api/book-requests/:id/upload', async (req, res) => {
     }
 
     const books = readBooks();
+    const pdfPath = resolveBookRequestPdfPath(requestEntry, books);
+    if (!pdfPath) {
+      return res.status(400).json({ error: 'Attach a PDF before uploading the requested book.' });
+    }
+
     const generatedDescription = String(description || '').trim() || await generateBookSummary({
       title: requestEntry.title,
       author: requestEntry.author,
@@ -1928,6 +2343,9 @@ app.post('/api/book-requests/:id/upload', async (req, res) => {
       approved: true,
       status: 'available',
       borrowCount: 0,
+      requestSource: 'book-request',
+      downloadMethod: 'manual-upload',
+      filePath: pdfPath,
     };
 
     books.push(newBook);
@@ -1938,7 +2356,11 @@ app.post('/api/book-requests/:id/upload', async (req, res) => {
     requestEntry.reviewedBy = requestEntry.reviewedBy || (librarianUsername ? String(librarianUsername) : 'librarian');
     requestEntry.uploadedAt = new Date().toISOString();
     requestEntry.uploadedBookId = newBook.id;
+    requestEntry.filePath = pdfPath;
     requestEntry.rejectionReason = '';
+    requestEntry.downloadProgress = 100;
+    requestEntry.downloadStatus = 'completed';
+    requestEntry.downloadError = '';
     bookRequests[requestIndex] = requestEntry;
     writeBookRequests(bookRequests);
 
@@ -1947,6 +2369,7 @@ app.post('/api/book-requests/:id/upload', async (req, res) => {
       'other',
       `Your requested book "${requestEntry.title}" has been approved and uploaded to the library system.`
     );
+    notifyUsersForSimilarAuthorDownloads(requestEntry, newBook.title);
 
     res.json({
       message: 'Book request uploaded successfully.',
@@ -1957,6 +2380,184 @@ app.post('/api/book-requests/:id/upload', async (req, res) => {
   } catch (err) {
     console.error('Error uploading requested book:', err);
     res.status(500).json({ error: 'Failed to upload requested book.' });
+  }
+});
+
+app.post('/api/book-requests/:id/download', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { librarianUsername } = req.body || {};
+
+    const bookRequests = readBookRequests();
+    const requestIndex = findBookRequestIndex(bookRequests, id);
+    if (requestIndex === -1) {
+      return res.status(404).json({ error: 'Book request not found.' });
+    }
+
+    const requestEntry = bookRequests[requestIndex];
+    if (!['pending', 'approved'].includes(String(requestEntry.status || '').toLowerCase())) {
+      return res.status(409).json({ error: 'Only pending or approved requests can be downloaded.' });
+    }
+
+    const persistProgress = (updates) => {
+      const latestRequests = readBookRequests();
+      const latestIndex = findBookRequestIndex(latestRequests, id);
+      if (latestIndex === -1) {
+        return requestEntry;
+      }
+
+      const latestEntry = {
+        ...latestRequests[latestIndex],
+        ...updates,
+      };
+      latestRequests[latestIndex] = latestEntry;
+      writeBookRequests(latestRequests);
+      return latestEntry;
+    };
+
+    persistProgress({
+      downloadProgress: 15,
+      downloadStatus: 'searching',
+      downloadError: '',
+    });
+
+    const candidate = await fetchGutendexCandidate(requestEntry);
+    if (!candidate) {
+      const alternatives = await suggestAlternativeTitles(requestEntry);
+      const updatedRequest = persistProgress({
+        status: 'rejected',
+        reviewedAt: new Date().toISOString(),
+        reviewedBy: librarianUsername ? String(librarianUsername) : 'librarian',
+        rejectionReason: 'Unable to find a downloadable copy online.',
+        alternativeSuggestions: alternatives,
+        downloadProgress: 100,
+        downloadStatus: 'failed',
+        downloadError: 'No online downloadable source found.',
+      });
+
+      addNotificationForUser(
+        requestEntry.requestedBy,
+        'other',
+        alternatives.length > 0
+          ? `We could not download "${requestEntry.title}". We found ${alternatives.length} suggested alternatives in your request details.`
+          : `We could not find an online downloadable copy for "${requestEntry.title}".`
+      );
+
+      return res.status(404).json({
+        error: 'No downloadable source found for the requested title.',
+        alternatives,
+        request: updatedRequest,
+      });
+    }
+
+    persistProgress({
+      downloadProgress: 45,
+      downloadStatus: 'downloading',
+      downloadError: '',
+    });
+
+    const filePath = await downloadOnlineBookAsset(candidate, requestEntry.title);
+
+    persistProgress({
+      downloadProgress: 70,
+      downloadStatus: 'summarizing',
+      downloadError: '',
+    });
+
+    const generatedSummary = String(candidate.summary || '').trim() || await generateBookSummary({
+      title: candidate.title || requestEntry.title,
+      author: candidate.author || requestEntry.author,
+      genre: requestEntry.genre,
+      summaryStyle: 'medium',
+      notes: requestEntry.reason,
+    });
+
+    const books = readBooks();
+    const newBook = {
+      id: Date.now(),
+      title: candidate.title || requestEntry.title,
+      authorUsername: 'library',
+      authorFullName: candidate.author || requestEntry.author,
+      genre: requestEntry.genre,
+      summary: generatedSummary,
+      description: generatedSummary,
+      publishDate: new Date().toISOString().split('T')[0],
+      approved: true,
+      status: 'available',
+      borrowCount: 0,
+      filePath,
+      requestSource: 'book-request',
+      downloadMethod: 'online-source',
+      sourceUrl: candidate.sourceUrl || candidate.downloadUrl || '',
+      sourceLabel: candidate.sourceLabel || 'Online source',
+    };
+    books.push(newBook);
+    writeBooks(books);
+
+    const updatedRequest = persistProgress({
+      status: 'uploaded',
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: librarianUsername ? String(librarianUsername) : 'librarian',
+      rejectionReason: '',
+      uploadedAt: new Date().toISOString(),
+      uploadedBookId: newBook.id,
+      filePath,
+      downloadProgress: 100,
+      downloadStatus: 'completed',
+      downloadError: '',
+    });
+
+    addNotificationForUser(
+      requestEntry.requestedBy,
+      'other',
+      `Your requested book "${requestEntry.title}" was downloaded and added to the library.`
+    );
+    notifyUsersForSimilarAuthorDownloads(requestEntry, newBook.title);
+
+    res.json({
+      message: 'Requested book downloaded and added successfully.',
+      request: updatedRequest,
+      book: newBook,
+      source: {
+        label: candidate.sourceLabel,
+        url: candidate.sourceUrl || candidate.downloadUrl,
+      },
+      summaryGenerated: !String(candidate.summary || '').trim(),
+    });
+  } catch (err) {
+    console.error('Error downloading requested book:', err);
+
+    try {
+      const { id } = req.params;
+      const bookRequests = readBookRequests();
+      const requestIndex = findBookRequestIndex(bookRequests, id);
+      if (requestIndex !== -1) {
+        bookRequests[requestIndex].downloadStatus = 'failed';
+        bookRequests[requestIndex].downloadProgress = 100;
+        bookRequests[requestIndex].downloadError = err.message || 'Download failed.';
+        writeBookRequests(bookRequests);
+      }
+    } catch (persistErr) {
+      console.error('Error persisting failed download state:', persistErr);
+    }
+
+    if (isTimeoutFetchError(err)) {
+      return res.status(503).json({
+        error: 'The online source timed out. Please try again or use manual upload.',
+      });
+    }
+
+    res.status(500).json({ error: 'Failed to download requested book.' });
+  }
+});
+
+app.get('/api/librarian/downloaded-books/stats', (req, res) => {
+  try {
+    const stats = computeDownloadedBookStats();
+    res.json(stats);
+  } catch (err) {
+    console.error('Error fetching downloaded books stats:', err);
+    res.status(500).json({ error: 'Failed to fetch downloaded books stats.' });
   }
 });
 
@@ -3119,6 +3720,28 @@ app.delete('/api/reviews/:bookId/:reviewId/response/:responseId', (req, res) => 
 });
 
 // LLM-Based Summary Generation Endpoint
+app.post('/api/generate-request-summary', async (req, res) => {
+  try {
+    const { title, author, genre, reason, summaryStyle } = req.body || {};
+    if (!title || !genre) {
+      return res.status(400).json({ error: 'title and genre are required.' });
+    }
+
+    const summary = await generateBookSummary({
+      title,
+      author,
+      genre,
+      summaryStyle: summaryStyle || 'medium',
+      notes: reason || '',
+    });
+
+    res.json({ summary });
+  } catch (err) {
+    console.error('Error generating request summary:', err);
+    res.status(500).json({ error: 'Failed to generate request summary.' });
+  }
+});
+
 // POST /api/generate-summary - Generate a book summary using LLM
 app.post('/api/generate-summary', summaryUpload.single('file'), async (req, res) => {
   try {

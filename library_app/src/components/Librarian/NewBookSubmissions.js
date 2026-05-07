@@ -15,41 +15,19 @@ function NewBookSubmissions({ currentUser }) {
 
   const fetchSubmissions = async () => {
     try {
-      const [authorRes, requestRes] = await Promise.all([
-        fetch('http://localhost:4000/api/submissions'),
-        fetch('http://localhost:4000/api/book-requests'),
-      ]);
-
+      const authorRes = await fetch('http://localhost:4000/api/submissions');
       const authorPayload = await authorRes.json().catch(() => []);
-      const requestPayload = await requestRes.json().catch(() => ({ bookRequests: [] }));
 
       const authorSubmissions = Array.isArray(authorPayload)
         ? authorPayload.map((item) => ({
             ...item,
             submissionType: 'author',
             selectionId: `author:${item.id}`,
-            submittedDate: item.submittedDate || item.publishDate,
+            submittedDate: item.submittedDate || item.publishDate || '',
           }))
         : [];
 
-      const requestSubmissions = Array.isArray(requestPayload?.bookRequests)
-        ? requestPayload.bookRequests.map((item) => ({
-            id: item.id,
-            title: item.title,
-            authorUsername: item.requestedBy,
-            author: item.author,
-            genre: item.genre,
-            status: item.status,
-            submittedDate: item.submittedAt
-              ? new Date(item.submittedAt).toISOString().split('T')[0]
-              : '',
-            submissionType: 'request',
-            reason: item.reason,
-            selectionId: `request:${item.id}`,
-          }))
-        : [];
-
-      setSubmissions([...authorSubmissions, ...requestSubmissions]);
+      setSubmissions(authorSubmissions);
     } catch {
       console.error('Failed to fetch submissions.');
     }
@@ -79,40 +57,16 @@ function NewBookSubmissions({ currentUser }) {
     try {
       const responses = await Promise.all(
         selectedSubmissions.map(async (selectionId) => {
-          const [submissionType, id] = selectionId.split(':');
-          let response;
-
-          if (submissionType === 'request') {
-            if (isApproved) {
-              response = await fetch(`http://localhost:4000/api/book-requests/${id}/upload`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  librarianUsername: currentUser?.username,
-                }),
-              });
-            } else {
-              response = await fetch(`http://localhost:4000/api/book-requests/${id}/review`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  isApproved: false,
-                  rejectionReason,
-                  librarianUsername: currentUser?.username,
-                }),
-              });
-            }
-          } else {
-            response = await fetch(`http://localhost:4000/api/submissions/${id}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                isApproved,
-                rejectionReason: isApproved ? undefined : rejectionReason,
-                sendToAuthor: !isApproved,
-              }),
-            });
-          }
+          const [, id] = selectionId.split(':');
+          const response = await fetch(`http://localhost:4000/api/submissions/${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              isApproved,
+              rejectionReason: isApproved ? undefined : rejectionReason,
+              sendToAuthor: !isApproved,
+            }),
+          });
 
           const payload = await response.json().catch(() => ({}));
           if (!response.ok) {
@@ -187,17 +141,16 @@ function NewBookSubmissions({ currentUser }) {
           <option value="uploaded">Uploaded</option>
         </select>
       </div>
-      <button onClick={() => handleBulkAction(true)}>Approve Selected (Requests auto-upload)</button>
+      <button onClick={() => handleBulkAction(true)}>Approve Selected</button>
       <button onClick={() => handleBulkAction(false)}>Reject Selected</button>
       <div style={{ overflowX: 'auto', marginBottom: '16px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
           <thead>
             <tr style={{ backgroundColor: '#23232e', borderBottom: '2px solid #6272a4' }}>
               <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c', whiteSpace: 'nowrap' }}>Select</th>
-              <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c', whiteSpace: 'nowrap' }}>Type</th>
               <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c', whiteSpace: 'nowrap' }}>Title</th>
-              <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c', whiteSpace: 'nowrap' }}>Submitted By</th>
-              <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c', whiteSpace: 'nowrap' }}>Requested Author</th>
+              <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c', whiteSpace: 'nowrap' }}>Author Username</th>
+              <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c', whiteSpace: 'nowrap' }}>Author</th>
               <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c', whiteSpace: 'nowrap' }}>Genre</th>
               <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c', whiteSpace: 'nowrap' }}>Reason/Description</th>
               <th style={{ padding: '8px', textAlign: 'left', color: '#ffb86c', whiteSpace: 'nowrap' }}>Submitted Date</th>
@@ -214,12 +167,11 @@ function NewBookSubmissions({ currentUser }) {
                   onChange={() => toggleSelection(submission.selectionId)}
                 />
               </td>
-              <td>{submission.submissionType}</td>
               <td>{submission.title}</td>
               <td>{submission.authorUsername}</td>
               <td>{submission.author || '-'}</td>
               <td>{submission.genre}</td>
-              <td>{submission.reason || submission.description || '-'}</td>
+              <td>{submission.description || submission.reason || '-'}</td>
               <td>{submission.submittedDate}</td>
               <td>
                 <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>

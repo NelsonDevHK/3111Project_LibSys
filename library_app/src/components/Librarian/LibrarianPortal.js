@@ -6,6 +6,7 @@ import ManageUsers from './ManageUsers';
 import BorrowedBooksRecord from './BorrowedBooksRecord';
 import LibrarianManagePublishedBooksScreen from './LibrarianManagePublishedBooksScreen';
 import LibrarianBookRequestsScreen from './LibrarianBookRequestsScreen';
+import LibrarianDownloadedBooksStatsScreen from './LibrarianDownloadedBooksStatsScreen';
 
 function LibrarianPortal({ currentUser, onLogout, onProfileUpdated }) {
   return (
@@ -18,6 +19,7 @@ function LibrarianPortal({ currentUser, onLogout, onProfileUpdated }) {
       <NotificationBoard currentUser={currentUser} />
       <NewBookSubmissions currentUser={currentUser} />
       <LibrarianBookRequestsScreen currentUser={currentUser} />
+      <LibrarianDownloadedBooksStatsScreen />
       <LibrarianManagePublishedBooksScreen currentUser={currentUser} />
       <ManageProfileScreen
         currentUser={currentUser}
