@@ -2,18 +2,23 @@
   "books": [
     {
       "id": 1775121575704,
-      "title": "",
+      "title": "aejkf",
       "authorUsername": "author1",
       "authorFullName": "Author One",
       "genre": "Non-Fiction",
-      "description": "",
+      "description": "123459",
       "filePath": "bookAssets/1775121575699.pdf",
       "coverPath": "",
       "publishDate": "2026-04-02",
       "approved": true,
-      "status": "available",
-      "borrowCount": 2,
+      "status": "borrowed",
+      "borrowCount": 3,
       "borrowHistory": [
+        {
+          "username": "s1",
+          "borrowedAt": "2026-05-07T12:20:14.933Z",
+          "dueDate": "2026-05-17"
+        },
         {
           "username": "s1",
           "borrowedAt": "2026-05-01T20:28:15.488Z",
@@ -27,24 +32,56 @@
       ],
       "readingData": {
         "s1": {
-          "bookmarkPage": 1,
+          "bookmarkPage": 2,
           "highlights": [],
-          "updatedAt": "2026-05-01T20:28:26.784Z"
+          "updatedAt": "2026-05-07T12:20:46.008Z"
         }
-      }
+      },
+      "borrowedBy": "s1",
+      "borrowedAt": "2026-05-07T12:20:14.933Z",
+      "dueDate": "2026-05-17",
+      "dueAt": "2026-05-17T12:20:14.933Z"
     },
     {
       "id": 1777663362049,
-      "title": "",
+      "title": "Titled2",
       "authorUsername": "author1",
       "authorFullName": "Author One",
       "genre": "Non-Fiction",
-      "description": "",
+      "description": "wed",
       "filePath": "bookAssets\\1777663362040.pdf",
       "coverPath": "",
       "publishDate": "2026-05-01",
       "approved": true,
-      "status": "available"
+      "status": "borrowed",
+      "borrowedBy": "s1",
+      "borrowedAt": "2026-05-07T12:22:38.267Z",
+      "dueDate": "2026-05-17",
+      "dueAt": "2026-05-17T12:22:38.267Z",
+      "borrowCount": 1,
+      "borrowHistory": [
+        {
+          "username": "s1",
+          "borrowedAt": "2026-05-07T12:22:38.267Z",
+          "dueDate": "2026-05-17"
+        }
+      ]
+    },
+    {
+      "id": 1778157336120,
+      "title": "123",
+      "authorUsername": "library",
+      "authorFullName": "William Shakespeare",
+      "genre": "Fiction",
+      "summary": "In the timeless classic \"Hamlet,\" William Shakespeare crafts a tragic tale of ambition, madness, and mortality. Prince Hamlet's quest for justice and truth drives the narrative, as he navigates the complexities of human nature and confronts the darkness within his own family. Through Shakespeare's masterful language and exploration of universal themes, \"Hamlet\" presents a haunting and thought-provoking drama that continues to captivate audiences with its profound insights into the human condition. This iconic work remains a cornerstone of literary heritage, offering a rich and enduring reading experience.",
+      "publishDate": "2026-05-07",
+      "approved": true,
+      "status": "available",
+      "borrowCount": 0,
+      "requestSource": "book-request",
+      "downloadMethod": "online-download",
+      "filePath": "bookAssets/1778157290276-hamlet.pdf",
+      "description": "123"
     }
   ]
 }

@@ -26,11 +26,11 @@
     },
     "1775121575704": {
       "id": 1775121575704,
-      "title": "",
+      "title": "aejkf",
       "genre": "Non-Fiction",
-      "description": "",
+      "description": "123459",
       "status": "approved",
-      "borrowed": false,
+      "borrowed": true,
       "filePath": "bookAssets/1775121575699.pdf",
       "coverPath": "",
       "publishDate": "2026-04-02"
@@ -49,11 +49,11 @@
     },
     "1777663362049": {
       "id": 1777663362049,
-      "title": "",
+      "title": "Titled2",
       "genre": "Non-Fiction",
-      "description": "",
+      "description": "wed",
       "status": "approved",
-      "borrowed": false,
+      "borrowed": true,
       "filePath": "bookAssets/1777663362040.pdf",
       "coverPath": "",
       "publishDate": "2026-05-01"
@@ -68,6 +68,30 @@
       "filePath": "bookAssets\\1777665032606.pdf",
       "coverPath": "",
       "publishDate": "2026-05-01"
+    }
+  },
+  "library": {
+    "1778148013344": {
+      "id": 1778148013344,
+      "title": "Pride and Prejudice",
+      "genre": "Fiction",
+      "description": "In Pride and Prejudice, Jane Austen crafts a witty and romantic exploration of societal class and personal relationships in 19th-century England. The novel follows Elizabeth Bennet, a strong-willed and independent young woman, as she navigates a complex web of relationships and misconceptions, particularly with the wealthy Mr. Darcy. Through Austen's insightful and humorous prose, the novel critiques the social conventions of her time while delivering a timeless and engaging love story. As a foundational work of English literature, Pride and Prejudice remains a compelling and relatable read for students and scholars alike.",
+      "status": "available",
+      "borrowed": false,
+      "filePath": "bookAssets/1778147960628-pride-and-prejudice.pdf",
+      "publishDate": "2026-05-07",
+      "requestSource": "book-request"
+    },
+    "1778157336120": {
+      "id": 1778157336120,
+      "title": "123",
+      "genre": "Fiction",
+      "description": "123",
+      "status": "available",
+      "borrowed": false,
+      "filePath": "bookAssets/1778157290276-hamlet.pdf",
+      "publishDate": "2026-05-07",
+      "requestSource": "book-request"
     }
   }
 }

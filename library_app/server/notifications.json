@@ -82,6 +82,30 @@
   "librarian1": {
     "newSubmissions": [
       {
+        "id": "6441c0da-cb07-41da-877a-8456a2c99177",
+        "category": "newSubmissions",
+        "message": "New book request: \"Hamlet\" requested by staff1.",
+        "timestamp": "2026-05-07T12:25:59.016Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "6937bf06-8411-4290-a91b-a187738b6e4c",
+        "category": "newSubmissions",
+        "message": "New book request: \"e234t5ry\" requested by s1.",
+        "timestamp": "2026-05-07T11:50:19.068Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "b62a8e0a-c631-4852-b70b-52dad59e40ec",
+        "category": "newSubmissions",
+        "message": "New book request: \"Pride and Prejudice\" requested by s1.",
+        "timestamp": "2026-05-07T09:58:58.379Z",
+        "unread": true,
+        "archived": false
+      },
+      {
         "id": "166d2e36-6656-4dcb-9a85-9039357d63f4",
         "category": "newSubmissions",
         "message": "New book request: \"Pride and Prejudice\" requested by s1.",
@@ -126,6 +150,30 @@
     "dueReminders": [],
     "bookDeletionNotices": [],
     "other": [
+      {
+        "id": "cba9454e-452a-4d15-9746-5e570cc3d4c4",
+        "category": "other",
+        "message": "New review submitted by s1 for \"\".",
+        "timestamp": "2026-05-07T12:23:35.645Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "e13b438d-ea8d-4ba4-a67f-864467415100",
+        "category": "other",
+        "message": "New review submitted by s1 for \"\".",
+        "timestamp": "2026-05-07T12:23:11.675Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "27427740-81bd-47d5-aea3-ab68dffffd78",
+        "category": "other",
+        "message": "Book deleted: \"Pride and Prejudice\".",
+        "timestamp": "2026-05-07T11:49:52.439Z",
+        "unread": true,
+        "archived": false
+      },
       {
         "id": "c2b43e48-ef51-4389-8a4f-9eec44714418",
         "category": "other",
@@ -189,6 +237,70 @@
     ],
     "other": [
       {
+        "id": "6d400354-555e-47bb-80ac-4e5d50151274",
+        "category": "other",
+        "message": "The author replied to your review for \"your book\": Thank you for the review. If you are open to it, I would appreciate any more detail about what worked well or what could be improved.",
+        "timestamp": "2026-05-07T12:28:16.726Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "da2f97af-a6c0-4fc9-80bb-545177f063c3",
+        "category": "other",
+        "message": "Your review for \"\" was submitted successfully.",
+        "timestamp": "2026-05-07T12:23:35.643Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "4029faed-be5e-4121-b98d-e5794a585b94",
+        "category": "other",
+        "message": "Your review for \"\" was submitted successfully.",
+        "timestamp": "2026-05-07T12:23:11.674Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "50549826-cd71-4a55-bd14-34ef1a3ad3b6",
+        "category": "other",
+        "message": "Book request rejected: \"e234t5ry\" was rejected. Reason: bigga.",
+        "timestamp": "2026-05-07T11:52:07.658Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "b0fb6df2-65cf-437b-b984-2e17056da3bb",
+        "category": "other",
+        "message": "We could not find an online downloadable copy for \"e234t5ry\".",
+        "timestamp": "2026-05-07T11:50:59.527Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "645a4606-d5c4-4fe4-86d1-5f82d06b18b1",
+        "category": "other",
+        "message": "Your requested book or a similar alternative by Jane Austen is now available: \"Pride and Prejudice\". You can now borrow it from the library!",
+        "timestamp": "2026-05-07T10:00:13.355Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "c8e7d26d-6a2d-471d-b8c0-9541f1be0401",
+        "category": "other",
+        "message": "Your requested book \"Pride and Prejudice\" has been approved and uploaded to the library system.",
+        "timestamp": "2026-05-07T10:00:13.352Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "ed3c8084-83f7-43d7-b3c8-38505b6323e1",
+        "category": "other",
+        "message": "A candidate for your requested book \"Pride and Prejudice\" was downloaded and is pending librarian review.",
+        "timestamp": "2026-05-07T09:59:20.639Z",
+        "unread": true,
+        "archived": false
+      },
+      {
         "id": "ef3ca920-4641-4c3e-a717-2b7024b3f737",
         "category": "other",
         "message": "A candidate for your requested book \"Pride and Prejudice\" was downloaded and is pending librarian review.",
@@ -237,6 +349,30 @@
     "bookRejectionUpdates": [],
     "bookUpdates": [],
     "newSubmissions": [
+      {
+        "id": "9e308993-60e6-4b0c-8ec6-385476849870",
+        "category": "newSubmissions",
+        "message": "New book request: \"Hamlet\" requested by staff1.",
+        "timestamp": "2026-05-07T12:25:59.016Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "55998d2c-3e8e-496d-90f3-488849033655",
+        "category": "newSubmissions",
+        "message": "New book request: \"e234t5ry\" requested by s1.",
+        "timestamp": "2026-05-07T11:50:19.068Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "3a04c0d4-b7e9-4187-a22c-43ff5ee68233",
+        "category": "newSubmissions",
+        "message": "New book request: \"Pride and Prejudice\" requested by s1.",
+        "timestamp": "2026-05-07T09:58:58.379Z",
+        "unread": true,
+        "archived": false
+      },
       {
         "id": "d524e07b-21df-4209-b85f-78670456208a",
         "category": "newSubmissions",
@@ -315,10 +451,69 @@
     "bookDeletionNotices": [],
     "other": [
       {
+        "id": "6046155b-144f-41b3-8bca-1cce380ec4fa",
+        "category": "other",
+        "message": "New review submitted by s1 for \"\".",
+        "timestamp": "2026-05-07T12:23:35.645Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "944c787d-0a9c-4784-b680-c5d1fd229aea",
+        "category": "other",
+        "message": "New review submitted by s1 for \"\".",
+        "timestamp": "2026-05-07T12:23:11.675Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "20731a2f-7f8b-4c47-b4e3-17594f7e4153",
+        "category": "other",
+        "message": "Book deleted: \"Pride and Prejudice\".",
+        "timestamp": "2026-05-07T11:49:52.439Z",
+        "unread": true,
+        "archived": false
+      },
+      {
         "id": "0d7eada4-1c3d-42ab-acf2-a540ad34db1b",
         "category": "other",
         "message": "New review submitted by s1 for \"Book 3\".",
         "timestamp": "2026-05-01T20:37:39.894Z",
+        "unread": true,
+        "archived": false
+      }
+    ]
+  },
+  "staff1": {
+    "bookApprovalUpdates": [],
+    "bookRejectionUpdates": [],
+    "bookUpdates": [],
+    "newSubmissions": [],
+    "accountUpdates": [],
+    "dueReminders": [],
+    "bookDeletionNotices": [],
+    "other": [
+      {
+        "id": "8118f21d-6b8c-4e54-8c0a-0c27ca72588e",
+        "category": "other",
+        "message": "Your requested book or a similar alternative by William Shakespeare is now available: \"Hamlet\". You can now borrow it from the library!",
+        "timestamp": "2026-05-07T12:35:36.130Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "97f2fdcf-1bbb-4a85-aada-4a2e64cd379a",
+        "category": "other",
+        "message": "Your requested book \"Hamlet\" has been approved and uploaded to the library system.",
+        "timestamp": "2026-05-07T12:35:36.127Z",
+        "unread": true,
+        "archived": false
+      },
+      {
+        "id": "fc5d584c-6cf0-4b3c-a7b9-e1af5bff9fa7",
+        "category": "other",
+        "message": "A candidate for your requested book \"Hamlet\" was downloaded and is pending librarian review.",
+        "timestamp": "2026-05-07T12:34:50.286Z",
         "unread": true,
         "archived": false
       }

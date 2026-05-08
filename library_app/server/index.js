@@ -4031,13 +4031,57 @@ app.patch('/api/librarian/published-books/:bookId', (req, res) => {
     if (!libraryBook) {
       return res.status(404).json({ error: 'Book not found in active library.' });
     }
-    
+    // Capture before snapshot
+    const before = { ...libraryBook };
+
     // Update fields
     if (title !== undefined) libraryBook.title = title;
     if (genre !== undefined) libraryBook.genre = genre;
     if (description !== undefined) libraryBook.description = description;
-    
+
+    // Persist book changes
     writeBooks(books);
+
+    // Also update publishedBooks mapping if present
+    let perAuthorHistoryAppended = false;
+    try {
+      const publishedBooks = readPublishedBooks();
+      Object.keys(publishedBooks).forEach((author) => {
+        if (publishedBooks[author] && publishedBooks[author][bookId]) {
+          // capture before/after for publishedBooks entry
+          const beforePub = { ...publishedBooks[author][bookId] };
+          if (title !== undefined) publishedBooks[author][bookId].title = title;
+          if (genre !== undefined) publishedBooks[author][bookId].genre = genre;
+          if (description !== undefined) publishedBooks[author][bookId].description = description;
+          const afterPub = { ...publishedBooks[author][bookId] };
+          appendServerHistory({
+            action: 'librarian-edit-published-entry',
+            actor: req.body?.actor || 'librarian',
+            bookId,
+            authorUsername: author,
+            before: beforePub,
+            after: afterPub,
+          });
+          perAuthorHistoryAppended = true;
+        }
+      });
+      writePublishedBooks(publishedBooks);
+    } catch (err) {
+      console.warn('Failed updating publishedBooks mapping for history:', err.message || err);
+    }
+
+    // Append server history for the primary book change only if no per-author history was recorded
+    if (!perAuthorHistoryAppended) {
+      appendServerHistory({
+        action: 'librarian-edit-book',
+        actor: req.body?.actor || 'librarian',
+        bookId,
+        authorUsername: libraryBook.authorUsername || libraryBook.author || null,
+        before,
+        after: { ...libraryBook },
+      });
+    }
+
     res.json({ message: 'Book updated successfully.', book: libraryBook });
   } catch (err) {
     console.error('Error updating book:', err);

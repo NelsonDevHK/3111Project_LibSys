@@ -151,6 +151,7 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
           title: editFormData.title.trim(),
           genre: editFormData.genre.trim(),
           description: editFormData.description.trim(),
+          actor: currentUser?.username || 'librarian',
         }),
       });
 
@@ -159,10 +160,12 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
         throw new Error(result.error || 'Failed to update book.');
       }
 
-      setMessage('Book updated successfully!');
+      // Use returned JSON to update local state and show formatted message
+      const updated = result.book;
+      setBooks((prev) => prev.map((b) => (String(b.id) === String(updated.id) ? updated : b)));
+      setMessage(result.message || `Updated "${updated.title}" successfully.`);
       setMessageType('success');
       setEditingBook(null);
-      fetchBooks();
     } catch (fetchError) {
       setMessage(fetchError.message || 'Failed to update book.');
       setMessageType('error');
@@ -910,7 +913,32 @@ const LibrarianManagePublishedBooksScreen = ({ currentUser }) => {
                 {historyEntries.map((h) => (
                   <li key={h.id} style={{ marginBottom: '12px' }}>
                     <div style={{ color: '#8f93a2', fontSize: '0.9rem' }}>{new Date(h.timestamp).toLocaleString()} — {h.action} by {h.actor || 'librarian'}</div>
-                    <pre style={{ background: '#1e1f26', padding: '8px', borderRadius: '4px', overflow: 'auto', color: '#f8f8f2' }}>{JSON.stringify({ before: h.before, after: h.after }, null, 2)}</pre>
+
+                    <div style={{ background: '#1e1f26', padding: '8px', borderRadius: '4px', overflow: 'auto', color: '#f8f8f2' }}>
+                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        <div style={{ minWidth: '220px' }}>
+                          <strong style={{ color: '#ffb86c' }}>Before</strong>
+                          <div style={{ marginTop: '6px' }}>
+                            <div><strong>Title:</strong> {h.before?.title || '—'}</div>
+                            <div><strong>Author:</strong> {h.before?.authorFullName || h.before?.author || h.before?.authorUsername || '—'}</div>
+                            <div style={{ marginTop: '6px' }}><strong>Description:</strong>
+                              <div style={{ marginTop: '4px', color: '#b8b9c2' }}>{h.before?.description || '—'}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ minWidth: '220px' }}>
+                          <strong style={{ color: '#50fa7b' }}>After</strong>
+                          <div style={{ marginTop: '6px' }}>
+                            <div><strong>Title:</strong> {h.after?.title || '—'}</div>
+                            <div><strong>Author:</strong> {h.after?.authorFullName || h.after?.author || h.after?.authorUsername || '—'}</div>
+                            <div style={{ marginTop: '6px' }}><strong>Description:</strong>
+                              <div style={{ marginTop: '4px', color: '#b8b9c2' }}>{h.after?.description || '—'}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </li>
                 ))}
               </ul>
